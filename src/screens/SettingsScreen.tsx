@@ -1,0 +1,774 @@
+import {
+  ArrowRight,
+  ArrowSquareOut,
+  Check,
+  Copy,
+  DownloadSimple,
+  PencilSimple,
+  Plus,
+  TelegramLogo,
+  Trash,
+} from '@phosphor-icons/react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useTheme } from '../app/theme'
+import { useToast } from '../app/toast'
+import { CategoryGlyph } from '../components/CategoryGlyph'
+import { SectionHeader } from '../components/SectionHeader'
+import { BrandLockup } from '../components/Brand'
+import { Button } from '../components/ui/Button'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { Field } from '../components/ui/Field'
+import { Modal } from '../components/ui/Modal'
+import { Segmented } from '../components/ui/Segmented'
+import { clearAll, db } from '../db/db'
+import { DEFAULT_CATEGORIES, PERSONAL_LEDGER_ID } from '../db/defaults'
+import { seedDemo } from '../db/seed'
+import type {
+  Category,
+  CategoryIcon,
+  Currency,
+  Profile,
+  RateType,
+  TxKind,
+} from '../db/types'
+import { cn } from '../lib/cn'
+import { shortDay } from '../lib/dates'
+import { exportCsv, exportJson } from '../lib/export'
+import { formatRate, initials } from '../lib/format'
+import { RATE_LABEL, RATES } from '../lib/fx'
+import { newId } from '../lib/id'
+
+const BILLING_ENABLED = false
+
+const ICON_OPTIONS: Array<{ value: CategoryIcon; label: string }> = [
+  { value: 'food', label: 'Comida' },
+  { value: 'transport', label: 'Transporte' },
+  { value: 'home', label: 'Hogar' },
+  { value: 'services', label: 'Servicios' },
+  { value: 'health', label: 'Salud' },
+  { value: 'fun', label: 'Ocio' },
+  { value: 'shopping', label: 'Compras' },
+  { value: 'pets', label: 'Mascotas' },
+  { value: 'salary', label: 'Sueldo' },
+  { value: 'freelance', label: 'Freelance' },
+  { value: 'sales', label: 'Ventas' },
+  { value: 'other', label: 'Otros' },
+]
+
+function Card({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('rounded-card border border-rule bg-surface p-5 md:p-6', className)}>
+      {children}
+    </div>
+  )
+}
+
+function Kicker({ children }: { children: ReactNode }) {
+  return (
+    <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">{children}</p>
+  )
+}
+
+export function SettingsScreen({ profile }: { profile: Profile }) {
+  const navigate = useNavigate()
+  const { push } = useToast()
+  const { choice, setChoice } = useTheme()
+
+  const [name, setName] = useState(profile.name)
+  const [email, setEmail] = useState(profile.email)
+  const [baseCurrency, setBaseCurrency] = useState<Currency>(profile.baseCurrency)
+  const [rateType, setRateType] = useState<RateType>(profile.defaultRateType)
+  const [savingAccount, setSavingAccount] = useState(false)
+
+  const [categoryKind, setCategoryKind] = useState<TxKind>('expense')
+  const [categoryModal, setCategoryModal] = useState<{
+    mode: 'create' | 'edit'
+    category?: Category
+  } | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftIcon, setDraftIcon] = useState<CategoryIcon>('other')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [categorySaving, setCategorySaving] = useState(false)
+
+  const [confirmDemo, setConfirmDemo] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const categories =
+    useLiveQuery(
+      () => db.categories.where('ledgerId').equals(profile.ledgerId).sortBy('order'),
+      [profile.ledgerId],
+    ) ?? []
+
+  const transactions =
+    useLiveQuery(
+      () => db.transactions.where('ledgerId').equals(profile.ledgerId).toArray(),
+      [profile.ledgerId],
+    ) ?? []
+
+  const usage = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const tx of transactions) {
+      map.set(tx.categoryId, (map.get(tx.categoryId) ?? 0) + 1)
+    }
+    return map
+  }, [transactions])
+
+  const visibleCategories = categories.filter((category) => category.kind === categoryKind)
+  const defaultIds = useMemo(() => new Set(DEFAULT_CATEGORIES.map((entry) => entry.id)), [])
+
+  useEffect(() => {
+    setName(profile.name)
+    setEmail(profile.email)
+    setBaseCurrency(profile.baseCurrency)
+    setRateType(profile.defaultRateType)
+  }, [profile.name, profile.email, profile.baseCurrency, profile.defaultRateType])
+
+  const dirty =
+    name.trim() !== profile.name ||
+    email.trim().toLowerCase() !== profile.email ||
+    baseCurrency !== profile.baseCurrency ||
+    rateType !== profile.defaultRateType
+
+  async function saveAccount(event: FormEvent) {
+    event.preventDefault()
+    if (name.trim().length < 2) {
+      push('El nombre necesita al menos dos letras.')
+      return
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      push('Escribe un correo válido.')
+      return
+    }
+    setSavingAccount(true)
+    await db.profiles.update(profile.id, {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      baseCurrency,
+      defaultRateType: rateType,
+    })
+    setSavingAccount(false)
+    push('Cuenta actualizada.')
+  }
+
+  function openCreate() {
+    setDraftName('')
+    setDraftIcon('other')
+    setCategoryError(null)
+    setCategoryModal({ mode: 'create' })
+  }
+
+  function openEdit(category: Category) {
+    setDraftName(category.name)
+    setDraftIcon(category.icon)
+    setCategoryError(null)
+    setCategoryModal({ mode: 'edit', category })
+  }
+
+  async function saveCategory() {
+    const clean = draftName.trim()
+    if (clean.length < 2) {
+      setCategoryError('Escribe un nombre de al menos dos letras.')
+      return
+    }
+    const duplicate = categories.some(
+      (entry) =>
+        entry.kind === categoryKind &&
+        entry.id !== categoryModal?.category?.id &&
+        entry.name.toLowerCase() === clean.toLowerCase(),
+    )
+    if (duplicate) {
+      setCategoryError('Ya existe una categoría con ese nombre.')
+      return
+    }
+    setCategorySaving(true)
+    if (categoryModal?.mode === 'edit' && categoryModal.category) {
+      await db.categories.update(categoryModal.category.id, { name: clean, icon: draftIcon })
+      push('Categoría actualizada.')
+    } else {
+      const maxOrder = Math.max(
+        0,
+        ...categories.filter((entry) => entry.kind === categoryKind).map((entry) => entry.order),
+      )
+      await db.categories.add({
+        id: newId('cat'),
+        ledgerId: profile.ledgerId,
+        name: clean,
+        icon: draftIcon,
+        kind: categoryKind,
+        order: maxOrder + 1,
+      })
+      push('Categoría agregada.')
+    }
+    setCategorySaving(false)
+    setCategoryModal(null)
+  }
+
+  async function deleteCategory() {
+    if (!categoryToDelete) return
+    await db.categories.delete(categoryToDelete.id)
+    setCategoryToDelete(null)
+    push('Categoría borrada.')
+  }
+
+  async function handleDemo() {
+    await seedDemo()
+    push('Datos de ejemplo cargados.')
+  }
+
+  async function handleClear() {
+    await clearAll()
+    push('Datos borrados de este dispositivo.')
+    navigate('/', { replace: true })
+  }
+
+  function copyGrammar() {
+    const text = 'Mercado 12511 bolivares bcv\n+Freelance 110 dolares paralelo'
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2200)
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-10 pb-4 md:gap-12">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
+            Tu cuenta y tu libro
+          </p>
+          <h1 className="mt-1 font-display text-[34px] font-semibold leading-[0.95] tracking-[-0.045em] text-ink md:text-[42px]">
+            Ajustes
+          </h1>
+          <p className="mt-2 max-w-[52ch] text-[12px] leading-relaxed text-muted md:text-[13px]">
+            Todo lo que puedes cambiar sin salir de este dispositivo. Nada se envía a un
+            servidor todavía.
+          </p>
+        </div>
+        <div className="hidden items-center gap-2.5 md:flex">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/20 bg-surface font-mono text-[11px] font-medium text-ink">
+            {initials(profile.name)}
+          </span>
+          <div className="leading-tight">
+            <p className="text-[13px] text-ink">{profile.name}</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted">
+              {profile.demo ? 'Perfil de ejemplo' : 'Perfil local'}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section aria-labelledby="cuenta">
+        <SectionHeader index="01" title="Cuenta" meta="Local" />
+        <form className="mt-4 flex flex-col gap-5" onSubmit={saveAccount}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field
+              label="Nombre"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="name"
+              maxLength={60}
+            />
+            <Field
+              label="Correo"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              inputMode="email"
+            />
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                Moneda base
+              </span>
+              <Segmented
+                options={[
+                  { value: 'VES', label: 'Bolívares' },
+                  { value: 'USD', label: 'Dólares' },
+                ]}
+                value={baseCurrency}
+                onChange={setBaseCurrency}
+                label="Moneda base"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                Tasa por defecto
+              </span>
+              <Segmented
+                options={[
+                  { value: 'bcv', label: 'BCV' },
+                  { value: 'paralelo', label: 'Paralelo' },
+                ]}
+                value={rateType}
+                onChange={setRateType}
+                label="Tasa por defecto"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-4">
+            <p className="max-w-[52ch] text-[11px] leading-relaxed text-muted">
+              La autenticación real con Supabase llega después. Hoy este perfil vive solo
+              en IndexedDB, en este navegador.
+            </p>
+            <Button type="submit" variant="primary" loading={savingAccount} disabled={!dirty}>
+              Guardar cambios
+            </Button>
+          </div>
+        </form>
+      </section>
+
+      <section aria-labelledby="apariencia">
+        <SectionHeader index="02" title="Apariencia" meta="Tema" />
+        <Card className="mt-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-[46ch]">
+              <Kicker>Claro, oscuro o como el sistema</Kicker>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
+                El tema oscuro usa grafito, no negro puro. Los acentos se mantienen
+                legibles y el recibo conserva su borde perforado.
+              </p>
+            </div>
+            <Segmented
+              className="md:w-[320px]"
+              options={[
+                { value: 'light', label: 'Claro' },
+                { value: 'dark', label: 'Oscuro' },
+                { value: 'system', label: 'Sistema' },
+              ]}
+              value={choice}
+              onChange={setChoice}
+              label="Tema de la interfaz"
+            />
+          </div>
+        </Card>
+      </section>
+
+      <section aria-labelledby="tasas">
+        <SectionHeader index="03" title="Tasas" meta="Referencia" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {(['bcv', 'paralelo'] as RateType[]).map((type) => {
+            const rate = RATES[type]
+            return (
+              <Card key={type} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Kicker>{RATE_LABEL[type]}</Kicker>
+                    <p className="mt-1 font-mono text-[24px] leading-none tracking-[-0.03em] tabular-nums text-ink">
+                      {formatRate(rate.value)}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-rule px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-muted">
+                    Bs / $
+                  </span>
+                </div>
+                <p className="font-mono text-[9px] uppercase leading-relaxed tracking-[0.08em] text-muted">
+                  {rate.source} · {shortDay(rate.date)} 2026
+                </p>
+              </Card>
+            )
+          })}
+        </div>
+        <p className="mt-3 max-w-[68ch] text-[11px] leading-relaxed text-muted">
+          Cada movimiento guarda la tasa con la que se anotó, así que cambiar la tasa por
+          defecto no reescribe el pasado. En este prototipo las tasas son fijas; la
+          actualización automática llega con el backend.
+        </p>
+      </section>
+
+      <section aria-labelledby="categorias">
+        <SectionHeader
+          index="04"
+          title="Categorías"
+          meta={`${visibleCategories.length} ${visibleCategories.length === 1 ? 'categoría' : 'categorías'}`}
+          action={
+            <Button size="sm" variant="secondary" onClick={openCreate}>
+              <Plus size={13} weight="bold" />
+              Agregar
+            </Button>
+          }
+        />
+        <div className="mt-4">
+          <Segmented
+            className="w-[236px]"
+            options={[
+              { value: 'expense', label: 'Gastos' },
+              { value: 'income', label: 'Ingresos' },
+            ]}
+            value={categoryKind}
+            onChange={setCategoryKind}
+            label="Tipo de categoría"
+            size="sm"
+          />
+          <div className="mt-4 border-t border-rule">
+            {visibleCategories.map((category) => {
+              const used = usage.get(category.id) ?? 0
+              const isDefault = defaultIds.has(category.id)
+              return (
+                <div
+                  key={category.id}
+                  className="flex items-center gap-3 border-b border-rule py-2.5"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-rule bg-paper-2 text-ink-2">
+                    <CategoryGlyph icon={category.icon} size={14} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] text-ink">{category.name}</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted">
+                      {used} {used === 1 ? 'movimiento' : 'movimientos'}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(category)}
+                    aria-label={`Renombrar ${category.name}`}
+                    className="flex h-11 w-11 items-center justify-center rounded-btn text-muted transition-colors hover:bg-paper-2 hover:text-ink md:h-8 md:w-8"
+                  >
+                    <PencilSimple size={15} weight="bold" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDefault}
+                    onClick={() => {
+                      if (isDefault) return
+                      if (used > 0) {
+                        push(
+                          `“${category.name}” tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Renómbrala o muévelos antes de borrarla.`,
+                        )
+                        return
+                      }
+                      setCategoryToDelete(category)
+                    }}
+                    aria-label={
+                      isDefault
+                        ? `${category.name} es predeterminada y no se puede borrar`
+                        : `Borrar ${category.name}`
+                    }
+                    className={cn(
+                      'flex h-11 w-11 items-center justify-center rounded-btn transition-colors md:h-8 md:w-8',
+                      isDefault
+                        ? 'cursor-not-allowed text-muted/35'
+                        : 'text-muted hover:bg-tomato/10 hover:text-tomato-text',
+                    )}
+                  >
+                    <Trash size={15} weight="bold" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted">
+            Las categorías predeterminadas no se borran para que los reportes históricos
+            sigan teniendo sentido. Las que crees tú sí, siempre que no tengan
+            movimientos.
+          </p>
+        </div>
+      </section>
+
+      <section aria-labelledby="telegram">
+        <SectionHeader index="05" title="Telegram" meta="No conectado" />
+        <Card className="mt-4">
+          <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rule bg-paper-2 text-ink-2">
+                  <TelegramLogo size={17} weight="bold" />
+                </span>
+                <div>
+                  <p className="font-display text-[19px] font-semibold leading-none tracking-[-0.03em] text-ink">
+                    Anota desde el chat
+                  </p>
+                  <p className="mt-1 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+                    Vista previa · sin conexión real
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 max-w-[48ch] text-[13px] leading-relaxed text-ink-2">
+                El bot todavía no está conectado. Así funcionará la gramática cuando lo
+                esté: una línea, sin emojis, con la tasa al final.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-1.5 font-mono text-[11px] leading-relaxed text-ink-2">
+                <code className="border-l-2 border-rule pl-2.5">Mercado 12511 bolivares bcv</code>
+                <code className="border-l-2 border-rule pl-2.5">+Freelance 110 dolares paralelo</code>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={copyGrammar}
+                  aria-live="polite"
+                >
+                  {copied ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
+                  {copied ? 'Copiado' : 'Copiar ejemplos'}
+                </Button>
+                <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+                  Disponible más adelante
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-btn border border-rule bg-paper p-3">
+              <div className="flex items-center justify-between border-b border-rule pb-2">
+                <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+                  stingy_bot
+                </span>
+                <span className="rounded-full border border-rule px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.1em] text-muted">
+                  No conectado
+                </span>
+              </div>
+              <div className="mt-3 flex flex-col gap-2">
+                <div className="ml-auto max-w-[88%] rounded-[10px] rounded-br-[3px] border border-ink/15 bg-lime px-2.5 py-1.5 text-[11px] leading-snug text-[#15160F]">
+                  Mercado 12511 bolivares bcv
+                </div>
+                <div className="mr-auto max-w-[92%] rounded-[10px] rounded-bl-[3px] border border-rule bg-surface px-2.5 py-2 text-[11px] leading-relaxed text-ink-2">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+                    Gasto anotado
+                  </p>
+                  <p className="mt-1 font-mono text-[13px] tabular-nums text-ink">
+                    Bs 12.511,00
+                  </p>
+                  <p className="mt-0.5 font-mono text-[10px] tabular-nums text-muted">
+                    $ 14,12 BCV · $ 12,47 paralelo
+                  </p>
+                  <p className="mt-1.5 text-[10px] text-muted">Comida · hoy</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      <section aria-labelledby="datos">
+        <SectionHeader index="06" title="Datos" meta="Este dispositivo" />
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Card className="flex flex-col gap-3">
+            <Kicker>Exportar</Kicker>
+            <p className="text-[13px] leading-relaxed text-ink-2">
+              Llévate todo: perfil, categorías y movimientos. El JSON sirve para
+              respaldar; el CSV abre en cualquier hoja de cálculo.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-2 pt-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  exportJson({ profile, categories, transactions })
+                }
+              >
+                <DownloadSimple size={13} weight="bold" />
+                JSON
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  exportCsv({ profile, categories, transactions })
+                }
+              >
+                <DownloadSimple size={13} weight="bold" />
+                CSV
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="flex flex-col gap-3">
+            <Kicker>Empezar de nuevo</Kicker>
+            <p className="text-[13px] leading-relaxed text-ink-2">
+              Cargar el ejemplo reemplaza todo por el perfil de Ana Torres y seis meses de
+              movimientos. Borrar deja el libro vacío.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-2 pt-2">
+              <Button size="sm" variant="secondary" onClick={() => setConfirmDemo(true)}>
+                Cargar ejemplo
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => setConfirmClear(true)}>
+                <Trash size={13} weight="bold" />
+                Borrar todo
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      <section aria-labelledby="licencia">
+        <SectionHeader index="07" title="Licencia" meta="Prototipo" />
+        <Card className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-[58ch]">
+            <p className="font-display text-[19px] font-semibold leading-none tracking-[-0.03em] text-ink">
+              Plan personal
+            </p>
+            <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+              Esta versión no cobra nada y no tiene planes falsos. La facturación por
+              licencia de usuario existirá cuando el producto salga del prototipo.
+            </p>
+            <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+              BILLING_ENABLED = {String(BILLING_ENABLED)}
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-rule px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted md:self-center">
+            Sin cobro
+          </span>
+        </Card>
+      </section>
+
+      <section aria-labelledby="sistema">
+        <SectionHeader index="08" title="Sistema de diseño" meta="Documentación" />
+        <div className="mt-4 flex flex-col gap-3 rounded-card border border-rule bg-surface p-5 md:flex-row md:items-center md:justify-between md:p-6">
+          <div className="flex items-center gap-3">
+            <BrandLockup coinSize={20} textClassName="text-[18px]" />
+            <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
+            <p className="text-[12px] leading-relaxed text-muted">
+              Tokens, tipografía, componentes y las reglas anti-plantilla.
+            </p>
+          </div>
+          <Link
+            to="/design"
+            className="inline-flex h-11 items-center gap-1.5 self-start rounded-btn border border-ink/25 bg-surface px-3 text-[13px] font-medium text-ink transition-colors hover:border-ink/50 md:h-9 md:self-auto"
+          >
+            Abrir /design
+            <ArrowSquareOut size={14} weight="bold" />
+          </Link>
+        </div>
+      </section>
+
+      <div className="flex items-center justify-between border-t border-rule pt-4 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+        <span>stingy · v0.1 · prototipo local</span>
+        <span className="inline-flex items-center gap-1.5">
+          <TelegramLogo size={12} weight="bold" />
+          Bot no conectado
+          <ArrowRight size={11} weight="bold" aria-hidden="true" />
+        </span>
+      </div>
+
+      <Modal
+        open={categoryModal !== null}
+        onOpenChange={(open) => {
+          if (!open) setCategoryModal(null)
+        }}
+        title={categoryModal?.mode === 'edit' ? 'Renombrar categoría' : 'Nueva categoría'}
+        description={
+          categoryKind === 'expense'
+            ? 'Se usará en gastos. Puedes cambiar el icono cuando quieras.'
+            : 'Se usará en ingresos. Puedes cambiar el icono cuando quieras.'
+        }
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="ghost" onClick={() => setCategoryModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              loading={categorySaving}
+              onClick={() => {
+                void saveCategory()
+              }}
+            >
+              {categoryModal?.mode === 'edit' ? 'Guardar' : 'Agregar categoría'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Nombre"
+            value={draftName}
+            onChange={(event) => {
+              setDraftName(event.target.value)
+              setCategoryError(null)
+            }}
+            maxLength={28}
+            autoFocus
+          />
+          {categoryError && (
+            <p role="alert" className="text-[12px] text-tomato-text">
+              {categoryError}
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+              Icono
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {ICON_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={draftIcon === option.value}
+                  aria-label={option.label}
+                  title={option.label}
+                  onClick={() => setDraftIcon(option.value)}
+                  className={cn(
+                    'flex h-11 w-11 items-center justify-center rounded-btn border transition-colors md:h-9 md:w-9',
+                    draftIcon === option.value
+                      ? 'border-ink bg-lime text-[#15160F]'
+                      : 'border-rule bg-surface-2 text-ink-2 hover:border-ink/30',
+                  )}
+                >
+                  <CategoryGlyph icon={option.value} size={15} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={categoryToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setCategoryToDelete(null)
+        }}
+        title={
+          categoryToDelete ? `¿Borrar “${categoryToDelete.name}”?` : '¿Borrar categoría?'
+        }
+        description="La categoría desaparece del selector. No tiene movimientos asociados."
+        confirmLabel="Borrar categoría"
+        onConfirm={() => {
+          void deleteCategory()
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmDemo}
+        onOpenChange={setConfirmDemo}
+        title="¿Reemplazar todo con el ejemplo?"
+        description="Se borran tu perfil y tus movimientos actuales. El ejemplo trae seis meses de datos de Ana Torres."
+        confirmLabel="Cargar ejemplo"
+        tone="primary"
+        onConfirm={() => {
+          void handleDemo()
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title="¿Borrar todo el libro?"
+        description="Desaparecen el perfil, las categorías y todos los movimientos de este dispositivo. No se puede deshacer."
+        confirmLabel="Borrar todo"
+        onConfirm={() => {
+          void handleClear()
+        }}
+      />
+
+      <span className="sr-only">
+        Cuenta local de {profile.name}, {PERSONAL_LEDGER_ID}
+      </span>
+    </div>
+  )
+}
