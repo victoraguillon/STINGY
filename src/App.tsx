@@ -1,4 +1,3 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect } from 'react'
 import {
   BrowserRouter,
@@ -8,11 +7,11 @@ import {
   useLocation,
 } from 'react-router-dom'
 import { QuickAddProvider } from './app/quick-add'
+import { SessionProvider, useSession } from './app/session'
 import { ToastProvider } from './app/toast'
 import { BrandLockup } from './components/Brand'
 import { AppShell } from './components/layout/AppShell'
 import { EmptyState } from './components/ui/EmptyState'
-import { db, ensureLedger } from './db/db'
 import { AuthScreen } from './screens/AuthScreen'
 import { DesignSystemScreen } from './screens/DesignSystemScreen'
 import { HomeScreen } from './screens/HomeScreen'
@@ -20,6 +19,7 @@ import { OnboardingScreen } from './screens/OnboardingScreen'
 import { ReportsScreen } from './screens/ReportsScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { TransactionsScreen } from './screens/TransactionsScreen'
+import { ensureRates } from './lib/rates'
 
 const TITLES: Record<string, string> = {
   '/': 'Inicio',
@@ -76,8 +76,7 @@ function NotFoundScreen() {
         }
       />
       <p className="max-w-[52ch] text-[12px] leading-relaxed text-muted">
-        Si llegaste aquí desde un enlace de Telegram, el bot todavía no está conectado en
-        este prototipo.
+        Si llegaste aquí desde un enlace de Telegram, el bot todavía no está conectado.
       </p>
       <div>
         <Link
@@ -91,18 +90,11 @@ function NotFoundScreen() {
   )
 }
 
-function AuthenticatedApp({ profileId }: { profileId: string }) {
-  const profile = useLiveQuery(
-    async () => (await db.profiles.get(profileId)) ?? null,
-    [profileId],
-  )
+function SessionGate() {
+  const { mode, profile, loadingProfile } = useSession()
 
-  useEffect(() => {
-    if (profile) void ensureLedger(profile)
-  }, [profile])
-
-  if (profile === undefined) return <LoadingBook />
-  if (profile === null) return <AuthScreen />
+  if (mode === 'loading' || loadingProfile) return <LoadingBook />
+  if (!profile) return <AuthScreen />
   if (!profile.onboardingComplete) return <OnboardingScreen profile={profile} />
 
   return (
@@ -122,11 +114,17 @@ function AuthenticatedApp({ profileId }: { profileId: string }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    void ensureRates()
+  }, [])
+
   return (
     <BrowserRouter>
       <ToastProvider>
-        <RouteEffects />
-        <AuthenticatedApp profileId="me" />
+        <SessionProvider>
+          <RouteEffects />
+          <SessionGate />
+        </SessionProvider>
       </ToastProvider>
     </BrowserRouter>
   )

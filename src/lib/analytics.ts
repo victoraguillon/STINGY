@@ -1,6 +1,6 @@
 import type { Category, Currency, Tx } from '../db/types'
 import { monthDays, toDayString, fromDayString } from './dates'
-import { RATES, RATE_LABEL } from './fx'
+import { RATE_LABEL, rateValue } from './fx'
 
 export interface Totals {
   incomeUsd: number
@@ -49,7 +49,7 @@ export function totalsIn(totals: Totals, currency: Currency) {
     : { income: totals.incomeUsd, expense: totals.expenseUsd, net: totals.netUsd }
 }
 
-export function toDisplay(usd: number, currency: Currency, bcv = RATES.bcv.value) {
+export function toDisplay(usd: number, currency: Currency, bcv = rateValue('bcv')) {
   return currency === 'VES' ? usd * bcv : usd
 }
 

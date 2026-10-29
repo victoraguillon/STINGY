@@ -45,12 +45,17 @@ export function HomeScreen({ profile }: { profile: Profile }) {
         .where('occurredOn')
         .between(start, end, true, true)
         .toArray()
-      return rows.filter((tx) => tx.ledgerId === profile.ledgerId)
+      return rows.filter((tx) => tx.ledgerId === profile.ledgerId && !tx.deletedAt)
     }, [start, end, profile.ledgerId]) ?? []
 
   const categories =
     useLiveQuery(
-      () => db.categories.where('ledgerId').equals(profile.ledgerId).toArray(),
+      () =>
+        db.categories
+          .where('ledgerId')
+          .equals(profile.ledgerId)
+          .toArray()
+          .then((rows) => rows.filter((category) => !category.deletedAt)),
       [profile.ledgerId],
     ) ?? []
 
@@ -87,7 +92,7 @@ export function HomeScreen({ profile }: { profile: Profile }) {
             <p className="mt-2 text-[12px] text-muted md:text-[13px]">
               {longDate(new Date())}
               <span className="px-1.5 text-rule">·</span>
-              {profile.demo ? 'Datos de ejemplo' : 'Solo en este dispositivo'}
+              {profile.demo ? 'Datos de ejemplo' : 'Supabase + copia local'}
             </p>
           </div>
           <div className="hidden items-center gap-2 md:flex">
@@ -102,7 +107,7 @@ export function HomeScreen({ profile }: { profile: Profile }) {
         <div className="mt-5 flex items-center justify-between md:hidden">
           <MonthStepper month={month} onChange={setMonth} />
           <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            Solo aquí
+            {profile.demo ? 'Demo' : 'Sync activo'}
           </span>
         </div>
       </header>

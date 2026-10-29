@@ -2,13 +2,20 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Backspace, CalendarBlank, X } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { db } from '../db/db'
+import { activeCategories } from '../db/db'
+import {
+  discardLocalTransaction,
+  removeTransaction,
+  restoreTransaction,
+  saveTransaction,
+} from '../db/repo'
 import type { Currency, Profile, RateType, Tx, TxKind } from '../db/types'
 import { useToast } from '../app/toast'
+import { useRates } from '../hooks/useRates'
 import { cn } from '../lib/cn'
 import { relativeDay, shortDay, toDayString } from '../lib/dates'
 import { formatMoney, parseAmountInput } from '../lib/format'
-import { RATE_LABEL, rateValue } from '../lib/fx'
+import { RATE_LABEL } from '../lib/fx'
 import { newId } from '../lib/id'
 import { CategoryGlyph } from './CategoryGlyph'
 import { Money } from './Money'
@@ -38,11 +45,9 @@ export function QuickAddSheet({
   editTx,
 }: QuickAddSheetProps) {
   const { push } = useToast()
+  const rates = useRates()
   const categories =
-    useLiveQuery(
-      () => db.categories.where('ledgerId').equals(profile.ledgerId).sortBy('order'),
-      [profile.ledgerId],
-    ) ?? []
+    useLiveQuery(() => activeCategories(profile.ledgerId), [profile.ledgerId]) ?? []
 
   const [kind, setKind] = useState<TxKind>(editTx?.kind ?? initialKind)
   const [raw, setRaw] = useState(editTx ? rawFromAmount(editTx.amount) : '')
@@ -66,9 +71,9 @@ export function QuickAddSheet({
   }, [])
 
   const amount = parseAmountInput(raw)
-  const chosenRate = rateValue(rateType)
+  const chosenRate = rates[rateType].value
   const otherType: RateType = rateType === 'bcv' ? 'paralelo' : 'bcv'
-  const otherRate = rateValue(otherType)
+  const otherRate = rates[otherType].value
   const amountUsd = currency === 'USD' ? amount : amount / chosenRate
   const equivalentCurrency: Currency = currency === 'VES' ? 'USD' : 'VES'
   const chosenEquivalent = currency === 'VES' ? amount / chosenRate : amount * chosenRate
@@ -150,29 +155,29 @@ export function QuickAddSheet({
       categoryId,
       note: note.trim() || category?.name || 'Movimiento',
       occurredOn: date,
-      updatedAt: now,
     }
 
     if (editTx) {
-      await db.transactions.update(editTx.id, base)
+      await saveTransaction({ ...editTx, ...base })
       push('Cambios guardados.', {
         label: 'Deshacer',
         onClick: () => {
-          void db.transactions.put(editTx)
+          void saveTransaction(editTx)
         },
       })
     } else {
-      const id = newId('tx')
-      await db.transactions.add({
+      const created: Tx = {
         ...base,
-        id,
+        id: newId(),
         source: 'web',
         createdAt: now,
-      })
+        updatedAt: now,
+      }
+      await saveTransaction(created)
       push(kind === 'expense' ? 'Anotado. Ese real no se escapa.' : 'Anotado. Ese real sí entró.', {
         label: 'Deshacer',
         onClick: () => {
-          void db.transactions.delete(id)
+          void discardLocalTransaction(created)
         },
       })
     }
@@ -182,12 +187,12 @@ export function QuickAddSheet({
 
   async function handleDelete() {
     if (!editTx) return
-    await db.transactions.delete(editTx.id)
+    await removeTransaction(editTx)
     onOpenChange(false)
     push('Movimiento borrado.', {
       label: 'Deshacer',
       onClick: () => {
-        void db.transactions.put(editTx)
+        void restoreTransaction(editTx)
       },
     })
   }
@@ -456,8 +461,9 @@ export function QuickAddSheet({
               )}
 
               <p className="hidden font-mono text-[9px] uppercase leading-relaxed tracking-[0.1em] text-muted md:block">
-                También puedes escribir el monto con el teclado. Se guarda en este
-                dispositivo.
+                {profile.demo
+                  ? 'También puedes escribir el monto con el teclado. Los datos de ejemplo viven solo en este dispositivo.'
+                  : 'También puedes escribir el monto con el teclado. Se guarda aquí y se sincroniza con Supabase.'}
               </p>
             </div>
 

@@ -1,4 +1,5 @@
 import {
+  ArrowClockwise,
   ArrowRight,
   ArrowSquareOut,
   Check,
@@ -11,20 +12,21 @@ import {
 } from '@phosphor-icons/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useSession } from '../app/session'
 import { useTheme } from '../app/theme'
 import { useToast } from '../app/toast'
+import { BrandLockup } from '../components/Brand'
 import { CategoryGlyph } from '../components/CategoryGlyph'
 import { SectionHeader } from '../components/SectionHeader'
-import { BrandLockup } from '../components/Brand'
 import { Button } from '../components/ui/Button'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Field } from '../components/ui/Field'
 import { Modal } from '../components/ui/Modal'
 import { Segmented } from '../components/ui/Segmented'
-import { clearAll, db } from '../db/db'
-import { DEFAULT_CATEGORIES, PERSONAL_LEDGER_ID } from '../db/defaults'
-import { seedDemo } from '../db/seed'
+import { activeCategories, activeTransactions } from '../db/db'
+import { isDefaultCategory } from '../db/defaults'
+import { removeCategory, saveCategory } from '../db/repo'
 import type {
   Category,
   CategoryIcon,
@@ -33,12 +35,15 @@ import type {
   RateType,
   TxKind,
 } from '../db/types'
+import { useRates } from '../hooks/useRates'
 import { cn } from '../lib/cn'
 import { shortDay } from '../lib/dates'
 import { exportCsv, exportJson } from '../lib/export'
 import { formatRate, initials } from '../lib/format'
-import { RATE_LABEL, RATES } from '../lib/fx'
+import { RATE_LABEL } from '../lib/fx'
 import { newId } from '../lib/id'
+import { refreshRates } from '../lib/rates'
+import { syncPhaseLabel, useSyncStatus } from '../sync/engine'
 
 const BILLING_ENABLED = false
 
@@ -78,15 +83,18 @@ function Kicker({ children }: { children: ReactNode }) {
 }
 
 export function SettingsScreen({ profile }: { profile: Profile }) {
-  const navigate = useNavigate()
   const { push } = useToast()
   const { choice, setChoice } = useTheme()
+  const { updateProfile, signOut, exitDemo, deleteAccount, refreshSync } = useSession()
+  const rates = useRates()
+  const sync = useSyncStatus()
 
   const [name, setName] = useState(profile.name)
-  const [email, setEmail] = useState(profile.email)
   const [baseCurrency, setBaseCurrency] = useState<Currency>(profile.baseCurrency)
   const [rateType, setRateType] = useState<RateType>(profile.defaultRateType)
   const [savingAccount, setSavingAccount] = useState(false)
+  const [refreshingRates, setRefreshingRates] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const [categoryKind, setCategoryKind] = useState<TxKind>('expense')
   const [categoryModal, setCategoryModal] = useState<{
@@ -99,21 +107,14 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [categorySaving, setCategorySaving] = useState(false)
 
-  const [confirmDemo, setConfirmDemo] = useState(false)
-  const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const categories =
-    useLiveQuery(
-      () => db.categories.where('ledgerId').equals(profile.ledgerId).sortBy('order'),
-      [profile.ledgerId],
-    ) ?? []
+    useLiveQuery(() => activeCategories(profile.ledgerId), [profile.ledgerId]) ?? []
 
   const transactions =
-    useLiveQuery(
-      () => db.transactions.where('ledgerId').equals(profile.ledgerId).toArray(),
-      [profile.ledgerId],
-    ) ?? []
+    useLiveQuery(() => activeTransactions(profile.ledgerId), [profile.ledgerId]) ?? []
 
   const usage = useMemo(() => {
     const map = new Map<string, number>()
@@ -124,18 +125,15 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
   }, [transactions])
 
   const visibleCategories = categories.filter((category) => category.kind === categoryKind)
-  const defaultIds = useMemo(() => new Set(DEFAULT_CATEGORIES.map((entry) => entry.id)), [])
 
   useEffect(() => {
     setName(profile.name)
-    setEmail(profile.email)
     setBaseCurrency(profile.baseCurrency)
     setRateType(profile.defaultRateType)
-  }, [profile.name, profile.email, profile.baseCurrency, profile.defaultRateType])
+  }, [profile.name, profile.baseCurrency, profile.defaultRateType])
 
   const dirty =
     name.trim() !== profile.name ||
-    email.trim().toLowerCase() !== profile.email ||
     baseCurrency !== profile.baseCurrency ||
     rateType !== profile.defaultRateType
 
@@ -145,19 +143,23 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       push('El nombre necesita al menos dos letras.')
       return
     }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      push('Escribe un correo válido.')
-      return
-    }
     setSavingAccount(true)
-    await db.profiles.update(profile.id, {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      baseCurrency,
-      defaultRateType: rateType,
-    })
-    setSavingAccount(false)
-    push('Cuenta actualizada.')
+    try {
+      await updateProfile({
+        name: name.trim(),
+        baseCurrency,
+        defaultRateType: rateType,
+      })
+      push(
+        navigator.onLine
+          ? 'Cuenta actualizada.'
+          : 'Guardado aquí. Se sincroniza cuando vuelvas a tener conexión.',
+      )
+    } catch {
+      push('No se pudo guardar el perfil.')
+    } finally {
+      setSavingAccount(false)
+    }
   }
 
   function openCreate() {
@@ -174,7 +176,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
     setCategoryModal({ mode: 'edit', category })
   }
 
-  async function saveCategory() {
+  async function saveCategoryDraft() {
     const clean = draftName.trim()
     if (clean.length < 2) {
       setCategoryError('Escribe un nombre de al menos dos letras.')
@@ -191,44 +193,83 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       return
     }
     setCategorySaving(true)
-    if (categoryModal?.mode === 'edit' && categoryModal.category) {
-      await db.categories.update(categoryModal.category.id, { name: clean, icon: draftIcon })
-      push('Categoría actualizada.')
-    } else {
-      const maxOrder = Math.max(
-        0,
-        ...categories.filter((entry) => entry.kind === categoryKind).map((entry) => entry.order),
-      )
-      await db.categories.add({
-        id: newId('cat'),
-        ledgerId: profile.ledgerId,
-        name: clean,
-        icon: draftIcon,
-        kind: categoryKind,
-        order: maxOrder + 1,
-      })
-      push('Categoría agregada.')
+    try {
+      if (categoryModal?.mode === 'edit' && categoryModal.category) {
+        await saveCategory(
+          { ...categoryModal.category, name: clean, icon: draftIcon },
+          profile.id,
+          profile.demo,
+        )
+        push('Categoría actualizada.')
+      } else {
+        const maxOrder = Math.max(
+          0,
+          ...categories
+            .filter((entry) => entry.kind === categoryKind)
+            .map((entry) => entry.order),
+        )
+        await saveCategory(
+          {
+            id: newId(),
+            ledgerId: profile.ledgerId,
+            name: clean,
+            icon: draftIcon,
+            kind: categoryKind,
+            order: maxOrder + 1,
+            createdAt: new Date().toISOString(),
+          },
+          profile.id,
+          profile.demo,
+        )
+        push('Categoría agregada.')
+      }
+      setCategoryModal(null)
+    } catch {
+      setCategoryError('No se pudo guardar la categoría.')
+    } finally {
+      setCategorySaving(false)
     }
-    setCategorySaving(false)
-    setCategoryModal(null)
   }
 
   async function deleteCategory() {
     if (!categoryToDelete) return
-    await db.categories.delete(categoryToDelete.id)
+    try {
+      await removeCategory(categoryToDelete, profile.id, profile.demo)
+      push('Categoría borrada.')
+    } catch {
+      push('No se pudo borrar la categoría.')
+    }
     setCategoryToDelete(null)
-    push('Categoría borrada.')
   }
 
-  async function handleDemo() {
-    await seedDemo()
-    push('Datos de ejemplo cargados.')
+  async function handleRateRefresh() {
+    setRefreshingRates(true)
+    const ok = await refreshRates()
+    setRefreshingRates(false)
+    push(
+      ok
+        ? 'Tasas actualizadas.'
+        : 'No se pudieron actualizar. Se muestran las últimas tasas guardadas.',
+    )
   }
 
-  async function handleClear() {
-    await clearAll()
-    push('Datos borrados de este dispositivo.')
-    navigate('/', { replace: true })
+  async function handleSync() {
+    setSyncing(true)
+    await refreshSync()
+    setSyncing(false)
+  }
+
+  async function handleSignOut() {
+    await signOut()
+  }
+
+  async function handleDeleteAccount() {
+    try {
+      await deleteAccount()
+      push('Cuenta borrada.')
+    } catch (caught) {
+      push(caught instanceof Error ? caught.message : 'No se pudo borrar la cuenta.')
+    }
   }
 
   function copyGrammar() {
@@ -250,8 +291,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             Ajustes
           </h1>
           <p className="mt-2 max-w-[52ch] text-[12px] leading-relaxed text-muted md:text-[13px]">
-            Todo lo que puedes cambiar sin salir de este dispositivo. Nada se envía a un
-            servidor todavía.
+            {profile.demo
+              ? 'Estás viendo datos de ejemplo. Viven solo en este dispositivo y no tocan ninguna cuenta real.'
+              : 'Los cambios se guardan en este dispositivo y se sincronizan con Supabase cuando hay conexión.'}
           </p>
         </div>
         <div className="hidden items-center gap-2.5 md:flex">
@@ -261,14 +303,14 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           <div className="leading-tight">
             <p className="text-[13px] text-ink">{profile.name}</p>
             <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted">
-              {profile.demo ? 'Perfil de ejemplo' : 'Perfil local'}
+              {profile.demo ? 'Perfil de ejemplo' : 'Cuenta Supabase'}
             </p>
           </div>
         </div>
       </header>
 
       <section aria-labelledby="cuenta">
-        <SectionHeader index="01" title="Cuenta" meta="Local" />
+        <SectionHeader index="01" title="Cuenta" meta={profile.demo ? 'Ejemplo' : 'Supabase'} />
         <form className="mt-4 flex flex-col gap-5" onSubmit={saveAccount}>
           <div className="grid gap-4 md:grid-cols-2">
             <Field
@@ -281,10 +323,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             <Field
               label="Correo"
               type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="email"
-              inputMode="email"
+              value={profile.email}
+              readOnly
+              hint="El correo es tu identidad de acceso. Cambiarlo llega con la verificación por correo."
             />
           </div>
 
@@ -321,8 +362,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-4">
             <p className="max-w-[52ch] text-[11px] leading-relaxed text-muted">
-              La autenticación real con Supabase llega después. Hoy este perfil vive solo
-              en IndexedDB, en este navegador.
+              {profile.demo
+                ? 'Este perfil de ejemplo no se sincroniza. Para tener una cuenta real, sal del ejemplo y crea una.'
+                : 'Nombre, moneda y tasa por defecto se sincronizan con tu perfil de Supabase.'}
             </p>
             <Button type="submit" variant="primary" loading={savingAccount} disabled={!dirty}>
               Guardar cambios
@@ -361,7 +403,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
         <SectionHeader index="03" title="Tasas" meta="Referencia" />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {(['bcv', 'paralelo'] as RateType[]).map((type) => {
-            const rate = RATES[type]
+            const rate = rates[type]
             return (
               <Card key={type} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
@@ -376,17 +418,30 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                   </span>
                 </div>
                 <p className="font-mono text-[9px] uppercase leading-relaxed tracking-[0.08em] text-muted">
-                  {rate.source} · {shortDay(rate.date)} 2026
+                  {rate.source} · {shortDay(rate.date)}
                 </p>
               </Card>
             )
           })}
         </div>
-        <p className="mt-3 max-w-[68ch] text-[11px] leading-relaxed text-muted">
-          Cada movimiento guarda la tasa con la que se anotó, así que cambiar la tasa por
-          defecto no reescribe el pasado. En este prototipo las tasas son fijas; la
-          actualización automática llega con el backend.
-        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-[68ch] text-[11px] leading-relaxed text-muted">
+            Cada movimiento guarda la tasa con la que se anotó, así que cambiar la tasa por
+            defecto no reescribe el pasado. La app busca tasas nuevas al abrir y cada seis
+            horas si hay conexión.
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={refreshingRates}
+            onClick={() => {
+              void handleRateRefresh()
+            }}
+          >
+            <ArrowClockwise size={13} weight="bold" />
+            Actualizar
+          </Button>
+        </div>
       </section>
 
       <section aria-labelledby="categorias">
@@ -416,7 +471,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           <div className="mt-4 border-t border-rule">
             {visibleCategories.map((category) => {
               const used = usage.get(category.id) ?? 0
-              const isDefault = defaultIds.has(category.id)
+              const isDefault = isDefaultCategory(category)
               return (
                 <div
                   key={category.id}
@@ -555,7 +610,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <section aria-labelledby="datos">
-        <SectionHeader index="06" title="Datos" meta="Este dispositivo" />
+        <SectionHeader index="06" title="Datos" meta="Exportar y sesión" />
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Card className="flex flex-col gap-3">
             <Kicker>Exportar</Kicker>
@@ -567,9 +622,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  exportJson({ profile, categories, transactions })
-                }
+                onClick={() => exportJson({ profile, categories, transactions })}
               >
                 <DownloadSimple size={13} weight="bold" />
                 JSON
@@ -577,9 +630,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  exportCsv({ profile, categories, transactions })
-                }
+                onClick={() => exportCsv({ profile, categories, transactions })}
               >
                 <DownloadSimple size={13} weight="bold" />
                 CSV
@@ -588,19 +639,70 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           </Card>
 
           <Card className="flex flex-col gap-3">
-            <Kicker>Empezar de nuevo</Kicker>
-            <p className="text-[13px] leading-relaxed text-ink-2">
-              Cargar el ejemplo reemplaza todo por el perfil de Ana Torres y seis meses de
-              movimientos. Borrar deja el libro vacío.
-            </p>
+            <Kicker>{profile.demo ? 'Datos de ejemplo' : 'Sesión y sincronización'}</Kicker>
+            {profile.demo ? (
+              <p className="text-[13px] leading-relaxed text-ink-2">
+                El ejemplo reemplaza el libro por el perfil de Ana Torres y seis meses de
+                movimientos. Al salir se borra y vuelves a la pantalla de acceso.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-[13px] leading-relaxed text-ink-2">
+                  Estado: <span className="text-ink">{syncPhaseLabel(sync.phase)}</span>
+                  {sync.lastSync ? ` · última ${shortDay(sync.lastSync.slice(0, 10))}` : ''}
+                </p>
+                {sync.error && (
+                  <p className="text-[11px] leading-relaxed text-tomato-text">{sync.error}</p>
+                )}
+                <p className="text-[11px] leading-relaxed text-muted">
+                  Sin conexión puedes seguir anotando. La cola se envía sola al volver la
+                  red.
+                </p>
+              </div>
+            )}
             <div className="mt-auto flex flex-wrap gap-2 pt-2">
-              <Button size="sm" variant="secondary" onClick={() => setConfirmDemo(true)}>
-                Cargar ejemplo
-              </Button>
-              <Button size="sm" variant="danger" onClick={() => setConfirmClear(true)}>
-                <Trash size={13} weight="bold" />
-                Borrar todo
-              </Button>
+              {profile.demo ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => {
+                    void exitDemo()
+                  }}
+                >
+                  Salir del ejemplo
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={syncing}
+                    onClick={() => {
+                      void handleSync()
+                    }}
+                  >
+                    <ArrowClockwise size={13} weight="bold" />
+                    Sincronizar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      void handleSignOut()
+                    }}
+                  >
+                    Cerrar sesión
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => setConfirmDeleteAccount(true)}
+                  >
+                    <Trash size={13} weight="bold" />
+                    Borrar cuenta
+                  </Button>
+                </>
+              )}
             </div>
           </Card>
         </div>
@@ -648,7 +750,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <div className="flex items-center justify-between border-t border-rule pt-4 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-        <span>stingy · v0.1 · prototipo local</span>
+        <span>stingy · v0.1 · {profile.demo ? 'demo local' : 'Supabase + copia local'}</span>
         <span className="inline-flex items-center gap-1.5">
           <TelegramLogo size={12} weight="bold" />
           Bot no conectado
@@ -676,7 +778,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               variant="primary"
               loading={categorySaving}
               onClick={() => {
-                void saveCategory()
+                void saveCategoryDraft()
               }}
             >
               {categoryModal?.mode === 'edit' ? 'Guardar' : 'Agregar categoría'}
@@ -744,30 +846,18 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       />
 
       <ConfirmDialog
-        open={confirmDemo}
-        onOpenChange={setConfirmDemo}
-        title="¿Reemplazar todo con el ejemplo?"
-        description="Se borran tu perfil y tus movimientos actuales. El ejemplo trae seis meses de datos de Ana Torres."
-        confirmLabel="Cargar ejemplo"
-        tone="primary"
+        open={confirmDeleteAccount}
+        onOpenChange={setConfirmDeleteAccount}
+        title="¿Borrar tu cuenta?"
+        description="Se borran tu perfil, tus categorías y todos tus movimientos en Supabase y en este dispositivo. No se puede deshacer."
+        confirmLabel="Borrar cuenta"
         onConfirm={() => {
-          void handleDemo()
-        }}
-      />
-
-      <ConfirmDialog
-        open={confirmClear}
-        onOpenChange={setConfirmClear}
-        title="¿Borrar todo el libro?"
-        description="Desaparecen el perfil, las categorías y todos los movimientos de este dispositivo. No se puede deshacer."
-        confirmLabel="Borrar todo"
-        onConfirm={() => {
-          void handleClear()
+          void handleDeleteAccount()
         }}
       />
 
       <span className="sr-only">
-        Cuenta local de {profile.name}, {PERSONAL_LEDGER_ID}
+        Cuenta de {profile.name}, libro {profile.ledgerId}
       </span>
     </div>
   )

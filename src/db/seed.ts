@@ -1,6 +1,6 @@
 import { startOfMonth, subMonths } from 'date-fns'
-import { clearAll, db, ensureCategories, ensureLedger } from './db'
-import { PERSONAL_LEDGER_ID } from './defaults'
+import { clearDemoData, db, ensureCategories, ensureLedger } from './db'
+import { DEMO_LEDGER_ID, DEMO_PROFILE_ID } from './defaults'
 import { newId } from '../lib/id'
 import { toDayString } from '../lib/dates'
 import { rateValue, toUsd } from '../lib/fx'
@@ -13,32 +13,6 @@ import type {
   TxKind,
   TxSource,
 } from './types'
-
-interface RegisterInput {
-  name: string
-  email: string
-  baseCurrency: Currency
-  defaultRateType: RateType
-  onboardingComplete?: boolean
-}
-
-export async function createProfile(input: RegisterInput): Promise<Profile> {
-  const profile: Profile = {
-    id: 'me',
-    name: input.name.trim() || 'Sin nombre',
-    email: input.email.trim().toLowerCase(),
-    ledgerId: PERSONAL_LEDGER_ID,
-    baseCurrency: input.baseCurrency,
-    defaultRateType: input.defaultRateType,
-    onboardingComplete: input.onboardingComplete ?? false,
-    demo: false,
-    createdAt: new Date().toISOString(),
-  }
-  await db.profiles.put(profile)
-  await ensureCategories()
-  await ensureLedger(profile)
-  return profile
-}
 
 interface Template {
   day: number
@@ -124,7 +98,7 @@ function buildDemoTransactions(profile: Profile, categories: Category[]) {
         12,
       ).toISOString()
       transactions.push({
-        id: newId('tx'),
+        id: newId(),
         ledgerId: profile.ledgerId,
         createdBy: profile.id,
         kind,
@@ -138,12 +112,18 @@ function buildDemoTransactions(profile: Profile, categories: Category[]) {
         occurredOn,
         source: template.source ?? 'web',
         createdAt,
+        updatedAt: createdAt,
       })
     }
 
     for (const template of EXPENSES) add(template, 'expense')
     for (const template of INCOMES) {
-      const extra = template.categoryId === 'cat_freelance' ? back * 8 : template.categoryId === 'cat_sales' ? back * 5 : 0
+      const extra =
+        template.categoryId === 'cat_freelance'
+          ? back * 8
+          : template.categoryId === 'cat_sales'
+            ? back * 5
+            : 0
       add({ ...template, amount: template.amount + extra }, 'income')
     }
     if (back % 3 === 0) {
@@ -169,23 +149,23 @@ function buildDemoTransactions(profile: Profile, categories: Category[]) {
 }
 
 export async function seedDemo() {
-  await clearAll()
-  await ensureCategories()
+  await clearDemoData()
+  await ensureCategories(DEMO_LEDGER_ID)
   const profile: Profile = {
-    id: 'me',
+    id: DEMO_PROFILE_ID,
     name: 'Ana Torres',
     email: 'ana@stingy.local',
-    ledgerId: PERSONAL_LEDGER_ID,
+    ledgerId: DEMO_LEDGER_ID,
     baseCurrency: 'VES',
     defaultRateType: 'bcv',
     onboardingComplete: true,
     demo: true,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
   await db.profiles.put(profile)
-  await ensureCategories()
   await ensureLedger(profile)
-  const categories = await db.categories.toArray()
+  const categories = await db.categories.where('ledgerId').equals(DEMO_LEDGER_ID).toArray()
   await db.transactions.bulkPut(buildDemoTransactions(profile, categories))
   return profile
 }

@@ -1,15 +1,14 @@
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { db } from '../db/db'
+import { useSession } from '../app/session'
 import type { Currency, Profile, RateType } from '../db/types'
 import { BrandLockup } from '../components/Brand'
 import { Button } from '../components/ui/Button'
 import { Field } from '../components/ui/Field'
 import { Segmented } from '../components/ui/Segmented'
+import { useRates } from '../hooks/useRates'
 import { cn } from '../lib/cn'
-import { RATES } from '../lib/fx'
 import { formatRate } from '../lib/format'
 
 const STEPS = [
@@ -19,7 +18,8 @@ const STEPS = [
 ] as const
 
 export function OnboardingScreen({ profile }: { profile: Profile }) {
-  const navigate = useNavigate()
+  const { completeOnboarding } = useSession()
+  const rates = useRates()
   const reduceMotion = useReducedMotion()
   const [step, setStep] = useState(0)
   const [name, setName] = useState(profile.name)
@@ -46,13 +46,8 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
   async function finish() {
     setSaving(true)
     try {
-      await db.profiles.update('me', {
-        name: name.trim(),
-        baseCurrency,
-        defaultRateType: rateType,
-        onboardingComplete: true,
-      })
-      navigate('/', { replace: true })
+      await completeOnboarding(name, baseCurrency, rateType)
+      // El gate de App reacciona al perfil vivo; no hace falta navegar.
     } catch {
       setError('No se pudo guardar. Intenta de nuevo.')
       setSaving(false)
@@ -154,8 +149,8 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
                     />
                     <p className="text-[12px] leading-relaxed text-muted">
                       {rateType === 'bcv'
-                        ? `BCV: ${formatRate(RATES.bcv.value)} Bs por dólar.`
-                        : `Paralelo: ${formatRate(RATES.paralelo.value)} Bs por dólar.`}{' '}
+                        ? `BCV: ${formatRate(rates.bcv.value)} Bs por dólar.`
+                        : `Paralelo: ${formatRate(rates.paralelo.value)} Bs por dólar.`}{' '}
                       La tasa se congela al anotar.
                     </p>
                   </fieldset>
@@ -218,7 +213,7 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
 
       <footer className="mx-auto flex w-full max-w-[720px] items-center justify-between px-5 pb-5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted md:px-8">
         <span>Una cuenta por persona</span>
-        <span>Datos en este dispositivo</span>
+        <span>{profile.demo ? 'Datos de ejemplo' : 'Supabase + copia local'}</span>
       </footer>
     </div>
   )

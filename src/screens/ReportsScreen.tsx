@@ -93,13 +93,23 @@ export function ReportsScreen({ profile }: { profile: Profile }) {
   const today = useMemo(() => new Date(), [])
 
   const rawTransactions = useLiveQuery(
-    () => db.transactions.where('ledgerId').equals(profile.ledgerId).toArray(),
+    () =>
+      db.transactions
+        .where('ledgerId')
+        .equals(profile.ledgerId)
+        .toArray()
+        .then((rows) => rows.filter((tx) => !tx.deletedAt)),
     [profile.ledgerId],
   )
 
   const categories =
     useLiveQuery(
-      () => db.categories.where('ledgerId').equals(profile.ledgerId).toArray(),
+      () =>
+        db.categories
+          .where('ledgerId')
+          .equals(profile.ledgerId)
+          .toArray()
+          .then((rows) => rows.filter((category) => !category.deletedAt)),
       [profile.ledgerId],
     ) ?? []
 

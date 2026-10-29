@@ -1,14 +1,12 @@
-import { ArrowRight, Eye, EyeSlash } from '@phosphor-icons/react'
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { db } from '../db/db'
-import { createProfile, seedDemo } from '../db/seed'
-import { capitalize } from '../lib/dates'
+import { ArrowRight, Eye, EyeSlash, WarningCircle } from '@phosphor-icons/react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useSession } from '../app/session'
 import { BrandLockup } from '../components/Brand'
-import { Stamp } from '../components/ui/Stamp'
 import { Button } from '../components/ui/Button'
 import { Field } from '../components/ui/Field'
 import { Segmented } from '../components/ui/Segmented'
+import { Stamp } from '../components/ui/Stamp'
+import { supabaseConfigured } from '../lib/supabase'
 
 type Mode = 'login' | 'register'
 
@@ -42,7 +40,7 @@ function SampleReceipt() {
 }
 
 export function AuthScreen() {
-  const navigate = useNavigate()
+  const { signIn, signUp, enterDemo, error: sessionError, retry } = useSession()
   const [mode, setMode] = useState<Mode>('register')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,6 +48,10 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
+
+  useEffect(() => {
+    if (sessionError) setError(sessionError)
+  }, [sessionError])
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -67,38 +69,19 @@ export function AuthScreen() {
       setError('La contraseña necesita al menos 6 caracteres.')
       return
     }
+    if (!supabaseConfigured) {
+      setError(
+        'Supabase no está configurado en este despliegue. Solo puedes abrir los datos de ejemplo.',
+      )
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
-      const existing = await db.profiles.get('me')
-      if (mode === 'login') {
-        if (!existing) {
-          setError('No hay una cuenta local. Crea una o prueba los datos de ejemplo.')
-          return
-        }
-        if (existing.email !== trimmed) {
-          setError('Ese correo no coincide con la cuenta local de este dispositivo.')
-          return
-        }
-        navigate('/', { replace: true })
-        return
-      }
-
-      if (existing) {
-        setError('Ya hay una cuenta local. Entra con su correo o borra los datos desde Ajustes.')
-        return
-      }
-
-      const local = trimmed.split('@')[0] ?? 'Sin nombre'
-      await createProfile({
-        name: capitalize(local.replace(/[._-]+/g, ' ')),
-        email: trimmed,
-        baseCurrency: 'VES',
-        defaultRateType: 'bcv',
-      })
-      navigate('/onboarding', { replace: true })
-    } catch {
-      setError('No se pudo crear la cuenta local. Intenta de nuevo.')
+      if (mode === 'login') await signIn(trimmed, password)
+      else await signUp(trimmed, password)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo completar el acceso.')
     } finally {
       setSubmitting(false)
     }
@@ -108,8 +91,7 @@ export function AuthScreen() {
     setError(null)
     setDemoLoading(true)
     try {
-      await seedDemo()
-      navigate('/', { replace: true })
+      await enterDemo()
     } catch {
       setError('No se pudieron cargar los datos de ejemplo.')
       setDemoLoading(false)
@@ -149,7 +131,7 @@ export function AuthScreen() {
 
         <footer className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
           <span>Hecho para Venezuela</span>
-          <span>v0.1 · prototipo</span>
+          <span>v0.1.0</span>
         </footer>
       </aside>
 
@@ -157,7 +139,7 @@ export function AuthScreen() {
         <div className="flex items-center justify-between px-5 pb-2 pt-5 lg:hidden">
           <BrandLockup coinSize={19} textClassName="text-[19px]" />
           <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            Prototipo local
+            {supabaseConfigured ? 'Cuenta real' : 'Sin backend'}
           </span>
         </div>
 
@@ -181,7 +163,7 @@ export function AuthScreen() {
         <div className="flex flex-1 items-center border-y border-rule bg-surface px-5 py-9 lg:border-0 lg:bg-transparent lg:px-10 xl:px-16">
           <div className="mx-auto w-full max-w-[380px]">
             <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
-              Acceso · Prototipo local
+              Acceso · {supabaseConfigured ? 'Supabase' : 'sin configurar'}
             </p>
             <h2 className="mt-2 font-display text-[30px] font-semibold leading-[1.02] tracking-[-0.04em] text-ink">
               {mode === 'register' ? 'Abre tu libro.' : 'Vuelve a tu libro.'}
@@ -191,6 +173,16 @@ export function AuthScreen() {
                 ? 'Una cuenta por persona. Tus números no se mezclan con los de nadie.'
                 : 'Entra para seguir anotando donde lo dejaste.'}
             </p>
+
+            {!supabaseConfigured && (
+              <div className="mt-5 flex gap-2.5 border-l-2 border-tomato-text bg-tomato/5 py-2 pl-2.5 pr-3">
+                <WarningCircle size={16} weight="bold" className="mt-0.5 shrink-0 text-tomato-text" />
+                <p className="text-[12px] leading-relaxed text-ink-2">
+                  Este despliegue no tiene las variables de Supabase. El acceso real está
+                  desactivado; los datos de ejemplo siguen funcionando.
+                </p>
+              </div>
+            )}
 
             <Segmented
               className="mt-6"
@@ -239,12 +231,21 @@ export function AuthScreen() {
               </div>
 
               {error && (
-                <p
-                  role="alert"
-                  className="border-l-2 border-tomato-text pl-2.5 text-[12px] leading-relaxed text-tomato-text"
-                >
-                  {error}
-                </p>
+                <div role="alert" className="border-l-2 border-tomato-text pl-2.5">
+                  <p className="text-[12px] leading-relaxed text-tomato-text">{error}</p>
+                  {sessionError && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        void retry()
+                      }}
+                      className="tap-link mt-1 font-mono text-[9px] uppercase tracking-[0.1em] text-ink underline decoration-rule underline-offset-4"
+                    >
+                      Reintentar
+                    </button>
+                  )}
+                </div>
               )}
 
               <Button
@@ -253,6 +254,7 @@ export function AuthScreen() {
                 size="lg"
                 className="mt-1 w-full"
                 loading={submitting}
+                disabled={!supabaseConfigured}
               >
                 {mode === 'register' ? 'Crear cuenta' : 'Entrar'}
               </Button>
@@ -278,15 +280,16 @@ export function AuthScreen() {
             </Button>
 
             <p className="mt-5 text-[11px] leading-relaxed text-muted">
-              Los datos viven en este dispositivo. La autenticación real llega con Supabase;
-              aquí el acceso es local.
+              Tu cuenta vive en Supabase y se guarda una copia local para seguir sin
+              conexión. La recuperación de contraseña todavía no está disponible: llega
+              cuando el dominio y el correo transaccional estén configurados.
             </p>
           </div>
         </div>
 
         <footer className="flex items-center justify-between px-5 py-5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted lg:px-10 xl:px-16">
           <span>stingy · Gasta con intención</span>
-          <span>v0.1</span>
+          <span>v0.1.0</span>
         </footer>
       </main>
     </div>

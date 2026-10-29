@@ -28,6 +28,7 @@ export interface Profile {
   onboardingComplete: boolean
   demo: boolean
   createdAt: string
+  updatedAt?: string
 }
 
 export type LedgerKind = 'personal' | 'shared'
@@ -39,6 +40,7 @@ export interface Ledger {
   kind: LedgerKind
   baseCurrency: Currency
   createdAt: string
+  updatedAt?: string
 }
 
 export interface LedgerMember {
@@ -56,6 +58,9 @@ export interface Category {
   icon: CategoryIcon
   kind: TxKind
   order: number
+  createdAt?: string
+  updatedAt?: string
+  deletedAt?: string
 }
 
 export interface Tx {
@@ -74,4 +79,29 @@ export interface Tx {
   source: TxSource
   createdAt: string
   updatedAt?: string
+  deletedAt?: string
+}
+
+export interface RateRow {
+  type: RateType
+  value: number
+  source: string
+  fetchedAt: string
+}
+
+export type SyncTable = 'profiles' | 'categories' | 'transactions'
+
+export interface OutboxEntry {
+  id: string
+  userId: string
+  table: SyncTable
+  rowId: string
+  createdAt: string
+  attempts: number
+  lastError?: string
+}
+
+export interface MetaRow {
+  key: string
+  value: string
 }

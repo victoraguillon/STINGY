@@ -27,7 +27,7 @@ import { Stamp } from '../components/ui/Stamp'
 import type { Category, CategoryIcon, Profile, Tx } from '../db/types'
 import { cn } from '../lib/cn'
 import { formatRate } from '../lib/format'
-import { RATES } from '../lib/fx'
+import { rateValue } from '../lib/fx'
 
 const COLORS: Array<{
   token: string
@@ -179,8 +179,8 @@ const SAMPLE_TX: Tx = {
   amount: 12511,
   currency: 'VES',
   rateType: 'bcv',
-  rate: RATES.bcv.value,
-  amountUsd: 12511 / RATES.bcv.value,
+  rate: rateValue('bcv'),
+  amountUsd: 12511 / rateValue('bcv'),
   categoryId: 'cat_food',
   note: 'Mercado',
   occurredOn: '2026-10-26',
@@ -461,7 +461,7 @@ export function DesignSystemScreen({ profile }: { profile: Profile }) {
                 <Money value={105100.4} currency="VES" className="text-[28px]" />
                 <Money value={118.6} currency="USD" className="text-[28px]" />
                 <span className="font-mono text-[14px] tabular-nums text-muted">
-                  {formatRate(RATES.bcv.value)}
+                  {formatRate(rateValue('bcv'))}
                 </span>
               </div>
               <p className="mt-3 max-w-[58ch] text-[12.5px] leading-relaxed text-muted">
@@ -768,12 +768,12 @@ export function DesignSystemScreen({ profile }: { profile: Profile }) {
                     BCV · 30 días
                   </p>
                   <p className="mt-1 font-mono text-[18px] tabular-nums text-ink">
-                    {formatRate(RATES.bcv.value)}
+                    {formatRate(rateValue('bcv'))}
                   </p>
                 </div>
                 <Sparkline
                   values={Array.from({ length: 30 }, (_, index) =>
-                    RATES.bcv.value * (1 - (29 - index) * 0.0013),
+                    rateValue('bcv') * (1 - (29 - index) * 0.0013),
                   )}
                   width={220}
                   height={36}

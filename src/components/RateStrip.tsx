@@ -1,12 +1,20 @@
 import { cn } from '../lib/cn'
 import { formatPercent, formatRate } from '../lib/format'
-import { RATES, RATE_LABEL } from '../lib/fx'
+import { RATE_LABEL } from '../lib/fx'
 import { shortDay } from '../lib/dates'
+import { useRates } from '../hooks/useRates'
+import type { RateInfo } from '../lib/fx'
 import type { RateType } from '../db/types'
 
-function RateBlock({ type, className }: { type: RateType; className?: string }) {
-  const rate = RATES[type]
-
+function RateBlock({
+  type,
+  rate,
+  className,
+}: {
+  type: RateType
+  rate: RateInfo
+  className?: string
+}) {
   return (
     <div className={cn('flex items-baseline justify-between gap-5 py-3', className)}>
       <div className="min-w-0">
@@ -28,7 +36,8 @@ function RateBlock({ type, className }: { type: RateType; className?: string }) 
 }
 
 export function RateStrip({ className }: { className?: string }) {
-  const gap = (RATES.paralelo.value / RATES.bcv.value - 1) * 100
+  const rates = useRates()
+  const gap = (rates.paralelo.value / rates.bcv.value - 1) * 100
 
   return (
     <section aria-label="Tasas de referencia" className={cn('border-y border-rule', className)}>
@@ -42,9 +51,10 @@ export function RateStrip({ className }: { className?: string }) {
         </span>
       </div>
       <div className="grid sm:grid-cols-2">
-        <RateBlock type="bcv" className="sm:pr-6" />
+        <RateBlock type="bcv" rate={rates.bcv} className="sm:pr-6" />
         <RateBlock
           type="paralelo"
+          rate={rates.paralelo}
           className="border-t border-rule sm:border-l sm:border-t-0 sm:pl-6"
         />
       </div>

@@ -1,7 +1,7 @@
 import { cn } from '../lib/cn'
 import { monthKeyOf, monthLabelUpper, shortDay } from '../lib/dates'
 import { formatMoney, formatRate } from '../lib/format'
-import { RATES } from '../lib/fx'
+import { useRates } from '../hooks/useRates'
 import type { Profile } from '../db/types'
 import { totalsIn, type Totals } from '../lib/analytics'
 import { Money } from './Money'
@@ -14,7 +14,8 @@ interface MonthlyReceiptProps {
 }
 
 export function MonthlyReceipt({ month, profile, totals, className }: MonthlyReceiptProps) {
-  const bcv = RATES.bcv.value
+  const rates = useRates()
+  const bcv = rates.bcv.value
   const base = profile.baseCurrency
   const other = base === 'VES' ? 'USD' : 'VES'
   const baseTotals = totalsIn(totals, base)
@@ -81,18 +82,18 @@ export function MonthlyReceipt({ month, profile, totals, className }: MonthlyRec
       <div className="mt-4 grid grid-cols-2 gap-4 border-t border-rule pt-3">
         <div>
           <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            BCV · {shortDay(RATES.bcv.date)}
+            BCV · {shortDay(rates.bcv.date)}
           </p>
           <p className="mt-1 font-mono text-[12px] tabular-nums text-ink">
-            {formatRate(RATES.bcv.value)}
+            {formatRate(rates.bcv.value)}
           </p>
         </div>
         <div>
           <p className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            Paralelo · {shortDay(RATES.paralelo.date)}
+            Paralelo · {shortDay(rates.paralelo.date)}
           </p>
           <p className="mt-1 font-mono text-[12px] tabular-nums text-ink">
-            {formatRate(RATES.paralelo.value)}
+            {formatRate(rates.paralelo.value)}
           </p>
         </div>
       </div>

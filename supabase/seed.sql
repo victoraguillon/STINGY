@@ -1,0 +1,1 @@
+-- Seed local vacío. Los datos de ejemplo viven en el cliente (Dexie).

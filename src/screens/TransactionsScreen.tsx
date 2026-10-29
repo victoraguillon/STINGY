@@ -51,12 +51,17 @@ export function TransactionsScreen({ profile }: { profile: Profile }) {
       .where('occurredOn')
       .between(start, end, true, true)
       .toArray()
-    return rows.filter((tx) => tx.ledgerId === profile.ledgerId)
+    return rows.filter((tx) => tx.ledgerId === profile.ledgerId && !tx.deletedAt)
   }, [start, end, profile.ledgerId])
 
   const categories =
     useLiveQuery(
-      () => db.categories.where('ledgerId').equals(profile.ledgerId).toArray(),
+      () =>
+        db.categories
+          .where('ledgerId')
+          .equals(profile.ledgerId)
+          .toArray()
+          .then((rows) => rows.filter((category) => !category.deletedAt)),
       [profile.ledgerId],
     ) ?? []
 
