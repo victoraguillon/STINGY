@@ -731,10 +731,12 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                     </div>
                     <p className="text-[10px] leading-relaxed text-muted">
                       {telegram.expiresAt
-                        ? `Vence a las ${new Date(telegram.expiresAt).toLocaleTimeString('es-VE', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}. `
+                        ? `Vence a las ${new Date(telegram.expiresAt)
+                            .toLocaleTimeString('es-VE', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                            .replace(/\.$/, '')}. `
                         : ''}
                       Envía /start con el código. Este panel se actualiza solo.
                     </p>

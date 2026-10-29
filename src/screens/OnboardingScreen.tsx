@@ -14,7 +14,7 @@ import { formatRate } from '../lib/format'
 const STEPS = [
   { id: 'name', kicker: 'Paso 01', title: '¿Cómo te llamas?', body: 'Es lo único que verás en la cabecera de tu recibo. Nada de apellidos si no quieres.' },
   { id: 'money', kicker: 'Paso 02', title: '¿En qué moneda piensas?', body: 'Puedes cambiarla después. Cada movimiento guarda la tasa con la que lo anotaste.' },
-  { id: 'telegram', kicker: 'Paso 03', title: 'Telegram, cuando quieras.', body: 'El bot todavía no está conectado en este prototipo. Puedes anotar desde aquí y vincularlo más adelante.' },
+  { id: 'telegram', kicker: 'Paso 03', title: 'Telegram, cuando quieras.', body: 'El bot ya está disponible. En Ajustes generas un código de un solo uso y lo envías a @stingyve_bot para anotar desde el chat.' },
 ] as const
 
 export function OnboardingScreen({ profile }: { profile: Profile }) {

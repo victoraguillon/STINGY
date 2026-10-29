@@ -76,7 +76,7 @@ function NotFoundScreen() {
         }
       />
       <p className="max-w-[52ch] text-[12px] leading-relaxed text-muted">
-        Si llegaste aquí desde un enlace de Telegram, el bot todavía no está conectado.
+        Si llegaste aquí desde un enlace de Telegram, revisa el vínculo en Ajustes.
       </p>
       <div>
         <Link
