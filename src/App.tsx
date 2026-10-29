@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import {
   BrowserRouter,
   Link,
@@ -26,7 +26,7 @@ const TITLES: Record<string, string> = {
   '/movimientos': 'Movimientos',
   '/reportes': 'Reportes',
   '/ajustes': 'Ajustes',
-  '/design': 'Sistema de diseño',
+  '/design': 'Sistema de diseÃ±o',
 }
 
 function RouteEffects() {
@@ -35,7 +35,7 @@ function RouteEffects() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
     const label = TITLES[location.pathname]
-    document.title = label ? `${label} — stingy` : 'stingy — Gasta con intención'
+    document.title = label ? `${label} â€” stingy` : 'stingy â€” Gasta con intenciÃ³n'
   }, [location.pathname])
 
   return null
@@ -61,11 +61,11 @@ function NotFoundScreen() {
   return (
     <div className="flex flex-col gap-8">
       <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
-        404 · fuera del libro
+        404 Â· fuera del libro
       </p>
       <EmptyState
-        title="Esta página no está en tu libro."
-        body="Puede que el enlace esté viejo o que la pantalla todavía no exista. Vuelve al resumen y sigue desde ahí."
+        title="Esta pÃ¡gina no estÃ¡ en tu libro."
+        body="Puede que el enlace estÃ© viejo o que la pantalla todavÃ­a no exista. Vuelve al resumen y sigue desde ahÃ­."
         action={
           <Link
             to="/"
@@ -76,14 +76,14 @@ function NotFoundScreen() {
         }
       />
       <p className="max-w-[52ch] text-[12px] leading-relaxed text-muted">
-        Si llegaste aquí desde un enlace de Telegram, revisa el vínculo en Ajustes.
+        Si llegaste aquÃ­ desde un enlace de Telegram, revisa el vÃ­nculo en Ajustes.
       </p>
       <div>
         <Link
           to="/design"
           className="tap-link font-mono text-[9px] uppercase tracking-[0.1em] text-ink-2 underline decoration-rule underline-offset-4 hover:decoration-ink"
         >
-          Ver el sistema de diseño
+          Ver el sistema de diseÃ±o
         </Link>
       </div>
     </div>
@@ -129,3 +129,4 @@ export default function App() {
     </BrowserRouter>
   )
 }
+

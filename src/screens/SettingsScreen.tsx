@@ -155,7 +155,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       push(
         navigator.onLine
           ? 'Cuenta actualizada.'
-          : 'Guardado aquí. Se sincroniza cuando vuelvas a tener conexión.',
+          : 'Guardado aquÃ­. Se sincroniza cuando vuelvas a tener conexiÃ³n.',
       )
     } catch {
       push('No se pudo guardar el perfil.')
@@ -191,7 +191,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
         entry.name.toLowerCase() === clean.toLowerCase(),
     )
     if (duplicate) {
-      setCategoryError('Ya existe una categoría con ese nombre.')
+      setCategoryError('Ya existe una categorÃ­a con ese nombre.')
       return
     }
     setCategorySaving(true)
@@ -202,7 +202,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           profile.id,
           profile.demo,
         )
-        push('Categoría actualizada.')
+        push('CategorÃ­a actualizada.')
       } else {
         const maxOrder = Math.max(
           0,
@@ -223,11 +223,11 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           profile.id,
           profile.demo,
         )
-        push('Categoría agregada.')
+        push('CategorÃ­a agregada.')
       }
       setCategoryModal(null)
     } catch {
-      setCategoryError('No se pudo guardar la categoría.')
+      setCategoryError('No se pudo guardar la categorÃ­a.')
     } finally {
       setCategorySaving(false)
     }
@@ -237,9 +237,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
     if (!categoryToDelete) return
     try {
       await removeCategory(categoryToDelete, profile.id, profile.demo)
-      push('Categoría borrada.')
+      push('CategorÃ­a borrada.')
     } catch {
-      push('No se pudo borrar la categoría.')
+      push('No se pudo borrar la categorÃ­a.')
     }
     setCategoryToDelete(null)
   }
@@ -251,7 +251,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
     push(
       ok
         ? 'Tasas actualizadas.'
-        : 'No se pudieron actualizar. Se muestran las últimas tasas guardadas.',
+        : 'No se pudieron actualizar. Se muestran las Ãºltimas tasas guardadas.',
     )
   }
 
@@ -294,7 +294,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
     try {
       await telegram.createCode()
     } catch (caught) {
-      push(caught instanceof Error ? caught.message : 'No se pudo generar el código.')
+      push(caught instanceof Error ? caught.message : 'No se pudo generar el cÃ³digo.')
     }
   }
 
@@ -336,8 +336,8 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           </h1>
           <p className="mt-2 max-w-[52ch] text-[12px] leading-relaxed text-muted md:text-[13px]">
             {profile.demo
-              ? 'Estás viendo datos de ejemplo. Viven solo en este dispositivo y no tocan ninguna cuenta real.'
-              : 'Los cambios se guardan en este dispositivo y se sincronizan con Supabase cuando hay conexión.'}
+              ? 'EstÃ¡s viendo datos de ejemplo. Viven solo en este dispositivo y no tocan ninguna cuenta real.'
+              : 'Los cambios se guardan en este dispositivo y se sincronizan con Supabase cuando hay conexiÃ³n.'}
           </p>
         </div>
         <div className="hidden items-center gap-2.5 md:flex">
@@ -369,7 +369,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               type="email"
               value={profile.email}
               readOnly
-              hint="El correo es tu identidad de acceso. Cambiarlo llega con la verificación por correo."
+              hint="El correo es tu identidad de acceso. Cambiarlo llega con la verificaciÃ³n por correo."
             />
           </div>
 
@@ -380,8 +380,8 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               </span>
               <Segmented
                 options={[
-                  { value: 'VES', label: 'Bolívares' },
-                  { value: 'USD', label: 'Dólares' },
+                  { value: 'VES', label: 'BolÃ­vares' },
+                  { value: 'USD', label: 'DÃ³lares' },
                 ]}
                 value={baseCurrency}
                 onChange={setBaseCurrency}
@@ -462,7 +462,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                   </span>
                 </div>
                 <p className="font-mono text-[9px] uppercase leading-relaxed tracking-[0.08em] text-muted">
-                  {rate.source} · {shortDay(rate.date)}
+                  {rate.source} Â· {shortDay(rate.date)}
                 </p>
               </Card>
             )
@@ -470,9 +470,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-[68ch] text-[11px] leading-relaxed text-muted">
-            Cada movimiento guarda la tasa con la que se anotó, así que cambiar la tasa por
+            Cada movimiento guarda la tasa con la que se anotÃ³, asÃ­ que cambiar la tasa por
             defecto no reescribe el pasado. La app busca tasas nuevas al abrir y cada seis
-            horas si hay conexión.
+            horas si hay conexiÃ³n.
           </p>
           <Button
             size="sm"
@@ -491,8 +491,8 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       <section aria-labelledby="categorias">
         <SectionHeader
           index="04"
-          title="Categorías"
-          meta={`${visibleCategories.length} ${visibleCategories.length === 1 ? 'categoría' : 'categorías'}`}
+          title="CategorÃ­as"
+          meta={`${visibleCategories.length} ${visibleCategories.length === 1 ? 'categorÃ­a' : 'categorÃ­as'}`}
           action={
             <Button size="sm" variant="secondary" onClick={openCreate}>
               <Plus size={13} weight="bold" />
@@ -509,7 +509,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             ]}
             value={categoryKind}
             onChange={setCategoryKind}
-            label="Tipo de categoría"
+            label="Tipo de categorÃ­a"
             size="sm"
           />
           <div className="mt-4 border-t border-rule">
@@ -545,7 +545,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                       if (isDefault) return
                       if (used > 0) {
                         push(
-                          `“${category.name}” tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Renómbrala o muévelos antes de borrarla.`,
+                          `â€œ${category.name}â€ tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. RenÃ³mbrala o muÃ©velos antes de borrarla.`,
                         )
                         return
                       }
@@ -570,8 +570,8 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             })}
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted">
-            Las categorías predeterminadas no se borran para que los reportes históricos
-            sigan teniendo sentido. Las que crees tú sí, siempre que no tengan
+            Las categorÃ­as predeterminadas no se borran para que los reportes histÃ³ricos
+            sigan teniendo sentido. Las que crees tÃº sÃ­, siempre que no tengan
             movimientos.
           </p>
         </div>
@@ -599,7 +599,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               <p className="mt-4 max-w-[48ch] text-[13px] leading-relaxed text-ink-2">
                 {profile.demo
                   ? 'El modo ejemplo no se conecta a Telegram. Crea una cuenta real para vincular el bot.'
-                  : 'Una línea, sin emojis, con la tasa al final. El bot usa tu libro y tus categorías, y anota en la zona horaria de Caracas.'}
+                  : 'Una lÃ­nea, sin emojis, con la tasa al final. El bot usa tu libro y tus categorÃ­as, y anota en la zona horaria de Caracas.'}
               </p>
 
               <div className="mt-4 flex flex-col gap-1.5 font-mono text-[11px] leading-relaxed text-ink-2">
@@ -639,7 +639,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                         void handleConnect()
                       }}
                     >
-                      {telegram.status === 'waiting' ? 'Nuevo código' : 'Generar código'}
+                      {telegram.status === 'waiting' ? 'Nuevo cÃ³digo' : 'Generar cÃ³digo'}
                     </Button>
                   ))}
               </div>
@@ -671,21 +671,21 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
 
                 {telegram.status === 'offline' && (
                   <p className="text-[11px] leading-relaxed text-ink-2">
-                    Sin conexión no puedo verificar el vínculo. Vuelve a intentar cuando
+                    Sin conexiÃ³n no puedo verificar el vÃ­nculo. Vuelve a intentar cuando
                     tengas red.
                   </p>
                 )}
 
                 {telegram.status === 'loading' && (
                   <p className="text-[11px] leading-relaxed text-muted" aria-live="polite">
-                    Verificando el vínculo con Telegram…
+                    Verificando el vÃ­nculo con Telegramâ€¦
                   </p>
                 )}
 
                 {telegram.status === 'error' && (
                   <>
                     <p className="text-[11px] leading-relaxed text-tomato-text">
-                      {telegram.error ?? 'No pude verificar el vínculo.'}
+                      {telegram.error ?? 'No pude verificar el vÃ­nculo.'}
                     </p>
                     <Button
                       size="sm"
@@ -701,16 +701,16 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
 
                 {telegram.status === 'disconnected' && (
                   <p className="text-[11px] leading-relaxed text-ink-2">
-                    Genera un código de un solo uso, ábrelo en Telegram y envía{' '}
+                    Genera un cÃ³digo de un solo uso, Ã¡brelo en Telegram y envÃ­a{' '}
                     <code className="font-mono text-[10px] text-ink">/start CODIGO</code>.
-                    El código vence en 10 minutos.
+                    El cÃ³digo vence en 10 minutos.
                   </p>
                 )}
 
                 {telegram.status === 'waiting' && telegram.code && (
                   <>
                     <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
-                      Tu código
+                      Tu cÃ³digo
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="flex-1 rounded-btn border border-ink/20 bg-surface px-3 py-2 font-mono text-[20px] tracking-[0.16em] text-ink">
@@ -720,7 +720,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                         size="icon"
                         variant="secondary"
                         onClick={copyCode}
-                        aria-label="Copiar código"
+                        aria-label="Copiar cÃ³digo"
                       >
                         {codeCopied ? (
                           <Check size={14} weight="bold" />
@@ -738,7 +738,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                             })
                             .replace(/\.$/, '')}. `
                         : ''}
-                      Envía /start con el código. Este panel se actualiza solo.
+                      EnvÃ­a /start con el cÃ³digo. Este panel se actualiza solo.
                     </p>
                     <a
                       href={telegramDeepLink(telegram.code)}
@@ -762,7 +762,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                     </p>
                     <p className="text-[11px] leading-relaxed text-ink-2">
                       Vinculado el {shortDay(telegram.link.linkedAt.slice(0, 10))}. Lo que
-                      anotes aquí llega a la app en la próxima sincronización.
+                      anotes aquÃ­ llega a la app en la prÃ³xima sincronizaciÃ³n.
                     </p>
                   </>
                 )}
@@ -773,13 +773,13 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <section aria-labelledby="datos">
-        <SectionHeader index="06" title="Datos" meta="Exportar y sesión" />
+        <SectionHeader index="06" title="Datos" meta="Exportar y sesiÃ³n" />
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Card className="flex flex-col gap-3">
             <Kicker>Exportar</Kicker>
             <p className="text-[13px] leading-relaxed text-ink-2">
-              Llévate todo: perfil, categorías y movimientos. El JSON sirve para
-              respaldar; el CSV abre en cualquier hoja de cálculo.
+              LlÃ©vate todo: perfil, categorÃ­as y movimientos. El JSON sirve para
+              respaldar; el CSV abre en cualquier hoja de cÃ¡lculo.
             </p>
             <div className="mt-auto flex flex-wrap gap-2 pt-2">
               <Button
@@ -802,7 +802,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           </Card>
 
           <Card className="flex flex-col gap-3">
-            <Kicker>{profile.demo ? 'Datos de ejemplo' : 'Sesión y sincronización'}</Kicker>
+            <Kicker>{profile.demo ? 'Datos de ejemplo' : 'SesiÃ³n y sincronizaciÃ³n'}</Kicker>
             {profile.demo ? (
               <p className="text-[13px] leading-relaxed text-ink-2">
                 El ejemplo reemplaza el libro por el perfil de Ana Torres y seis meses de
@@ -812,13 +812,13 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
               <div className="flex flex-col gap-2">
                 <p className="text-[13px] leading-relaxed text-ink-2">
                   Estado: <span className="text-ink">{syncPhaseLabel(sync.phase)}</span>
-                  {sync.lastSync ? ` · última ${shortDay(sync.lastSync.slice(0, 10))}` : ''}
+                  {sync.lastSync ? ` Â· Ãºltima ${shortDay(sync.lastSync.slice(0, 10))}` : ''}
                 </p>
                 {sync.error && (
                   <p className="text-[11px] leading-relaxed text-tomato-text">{sync.error}</p>
                 )}
                 <p className="text-[11px] leading-relaxed text-muted">
-                  Sin conexión puedes seguir anotando. La cola se envía sola al volver la
+                  Sin conexiÃ³n puedes seguir anotando. La cola se envÃ­a sola al volver la
                   red.
                 </p>
               </div>
@@ -854,7 +854,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                       void handleSignOut()
                     }}
                   >
-                    Cerrar sesión
+                    Cerrar sesiÃ³n
                   </Button>
                   <Button
                     size="sm"
@@ -872,15 +872,15 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <section aria-labelledby="licencia">
-        <SectionHeader index="07" title="Licencia" meta="Prototipo" />
+        <SectionHeader index="07" title="Licencia" meta="Producción" />
         <Card className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="max-w-[58ch]">
             <p className="font-display text-[19px] font-semibold leading-none tracking-[-0.03em] text-ink">
               Plan personal
             </p>
             <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
-              Esta versión no cobra nada y no tiene planes falsos. La facturación por
-              licencia de usuario existirá cuando el producto salga del prototipo.
+              Esta versiÃ³n no cobra nada y no tiene planes falsos. La facturaciÃ³n por
+              licencia de usuario existirÃ¡ cuando el producto licencia de usuario estará disponible pronto.otipo.
             </p>
             <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
               BILLING_ENABLED = {String(BILLING_ENABLED)}
@@ -893,13 +893,13 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <section aria-labelledby="sistema">
-        <SectionHeader index="08" title="Sistema de diseño" meta="Documentación" />
+        <SectionHeader index="08" title="Sistema de diseÃ±o" meta="DocumentaciÃ³n" />
         <div className="mt-4 flex flex-col gap-3 rounded-card border border-rule bg-surface p-5 md:flex-row md:items-center md:justify-between md:p-6">
           <div className="flex items-center gap-3">
             <BrandLockup coinSize={20} textClassName="text-[18px]" />
             <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
             <p className="text-[12px] leading-relaxed text-muted">
-              Tokens, tipografía, componentes y las reglas anti-plantilla.
+              Tokens, tipografÃ­a, componentes y las reglas anti-plantilla.
             </p>
           </div>
           <Link
@@ -913,7 +913,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <div className="flex items-center justify-between border-t border-rule pt-4 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-        <span>stingy · v0.1 ·</span>
+        <span>stingy Â· v0.1 Â·</span>
       </div>
 
       <Modal
@@ -921,11 +921,11 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
         onOpenChange={(open) => {
           if (!open) setCategoryModal(null)
         }}
-        title={categoryModal?.mode === 'edit' ? 'Renombrar categoría' : 'Nueva categoría'}
+        title={categoryModal?.mode === 'edit' ? 'Renombrar categorÃ­a' : 'Nueva categorÃ­a'}
         description={
           categoryKind === 'expense'
-            ? 'Se usará en gastos. Puedes cambiar el icono cuando quieras.'
-            : 'Se usará en ingresos. Puedes cambiar el icono cuando quieras.'
+            ? 'Se usarÃ¡ en gastos. Puedes cambiar el icono cuando quieras.'
+            : 'Se usarÃ¡ en ingresos. Puedes cambiar el icono cuando quieras.'
         }
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -939,7 +939,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                 void saveCategoryDraft()
               }}
             >
-              {categoryModal?.mode === 'edit' ? 'Guardar' : 'Agregar categoría'}
+              {categoryModal?.mode === 'edit' ? 'Guardar' : 'Agregar categorÃ­a'}
             </Button>
           </div>
         }
@@ -994,10 +994,10 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           if (!open) setCategoryToDelete(null)
         }}
         title={
-          categoryToDelete ? `¿Borrar “${categoryToDelete.name}”?` : '¿Borrar categoría?'
+          categoryToDelete ? `Â¿Borrar â€œ${categoryToDelete.name}â€?` : 'Â¿Borrar categorÃ­a?'
         }
-        description="La categoría desaparece del selector. No tiene movimientos asociados."
-        confirmLabel="Borrar categoría"
+        description="La categorÃ­a desaparece del selector. No tiene movimientos asociados."
+        confirmLabel="Borrar categorÃ­a"
         onConfirm={() => {
           void deleteCategory()
         }}
@@ -1006,8 +1006,8 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       <ConfirmDialog
         open={confirmDeleteAccount}
         onOpenChange={setConfirmDeleteAccount}
-        title="¿Borrar tu cuenta?"
-        description="Se borran tu perfil, tus categorías y todos tus movimientos en Supabase y en este dispositivo. No se puede deshacer."
+        title="Â¿Borrar tu cuenta?"
+        description="Se borran tu perfil, tus categorÃ­as y todos tus movimientos en Supabase y en este dispositivo. No se puede deshacer."
         confirmLabel="Borrar cuenta"
         onConfirm={() => {
           void handleDeleteAccount()
@@ -1020,3 +1020,9 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
     </div>
   )
 }
+
+
+
+
+
+
