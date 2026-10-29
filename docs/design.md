@@ -1,6 +1,6 @@
 # Sistema de diseño — stingy
 
-Este documento fija la dirección visual y las reglas que el prototipo ya cumple.
+Este documento fija la dirección visual y las reglas que el producto ya cumple.
 Si una pantalla nueva contradice algo de aquí, la pantalla está mal, no el
 documento. La versión navegable de estas reglas vive en `/design`.
 
@@ -53,7 +53,7 @@ Prohibido:
 Obligatorio:
 
 - Una sola idea por pantalla y una jerarquía tipográfica clara.
-- Etiquetas honestas: «No conectado», «Vista previa», «Prototipo local».
+- Etiquetas honestas: «No conectado», «Sin conexión», «Modo ejemplo».
 - Bordes y hairlines antes que sombras; el color solo cuando significa algo.
 - Gráficas acompañadas de una tabla equivalente.
 - Estados vacíos que explican qué hacer, no que se disculpan.
@@ -204,15 +204,19 @@ Dexie, base `stingy`, versión 2.
 
 Decisiones:
 
-- En este prototipo el perfil local siempre es `me` y su libro es
-  `ledger_personal`.
+- El modo ejemplo usa el perfil `demo` y el libro `ledger_demo`; las cuentas
+  reales usan UUID de Supabase.
 - `ledgers` y `ledgerMembers` existen desde el día uno aunque la UI de cuentas
   compartidas no se muestre. Así una cuenta compartida futura no exige migrar
   transacciones ni categorías.
 - Categorías y movimientos ya están aislados por `ledgerId`; `createdBy` queda
   listo para saber quién anotó en un libro compartido.
 - Los importes se guardan como número; la moneda y la tasa son parte del hecho.
-- No se guardan contraseñas ni tokens. No hay Supabase en esta versión.
+- La sesión la maneja el cliente de Supabase; la app no guarda contraseñas. El
+  modo ejemplo no toca Supabase.
+- Cada fila escribe primero en Dexie y luego en la cola de salida. El empuje va
+  por prioridad (perfiles, categorías, transacciones) y resuelve conflictos por
+  `updatedAt`; el borrado es lógico.
 
 ## 13. Pantallas
 
@@ -226,18 +230,23 @@ Decisiones:
 | `/onboarding` | Onboarding | Tres pasos, solo primera vez |
 | `*` | 404 | «Esta página no está en tu libro.» |
 
-El acceso (`/` sin perfil) es local: valida correo y longitud de contraseña,
-pero no verifica la contraseña. La interfaz lo declara como prototipo.
+El acceso (`/` sin perfil) usa Supabase Auth con correo y contraseña. **Probar el
+ejemplo** entra al modo local sin tocar la red. La confirmación de correo está
+desactivada y la recuperación de contraseña no está disponible hasta tener SMTP
+propio; la interfaz lo dice.
 
-## 14. Telegram (gramática futura)
+## 14. Telegram
 
 - `Mercado 12511 bolivares bcv` → gasto en Bs a tasa BCV.
 - `+Freelance 110 dolares paralelo` → ingreso en USD a tasa paralelo.
 - `+` indica ingreso; sin signo, gasto.
 - `bcv` o `paralelo` eligen la tasa; si falta, se usa la preferida del perfil.
+- «ayer» y «hoy» se resuelven en `America/Caracas`.
 - La respuesta muestra el monto anotado y ambos equivalentes, sin emojis.
-- En el prototipo **no hay bot conectado**. La UI solo muestra la gramática y una
-  vista previa rotulada «Sin conexión real».
+- El bot `@stingyve_bot` está activo. La vinculación se hace en Ajustes con un
+  código de un solo uso de 10 minutos; un chat pertenece a una sola cuenta.
+- La app solo muestra «Conectado» si existe una fila activa en `telegram_links`.
+  Sin red, dice que no puede verificar.
 
 ## 15. Accesibilidad y QA
 
@@ -257,12 +266,9 @@ pero no verifica la contraseña. La interfaz lo declara como prototipo.
 
 No implementado a propósito:
 
-- Autenticación real con Supabase, recuperación de contraseña y verificación de
-  correo.
-- Sincronización, conflictos y multi-dispositivo.
+- Recuperación de contraseña y verificación de correo (requieren dominio propio y
+  SMTP).
 - UI de cuentas compartidas, invitaciones y roles (el modelo ya los soporta).
-- Bot de Telegram y webhook.
-- Actualización automática de tasas con fuente y fecha.
 - Licencia por usuario, pedidos de pago y facturación (`BILLING_ENABLED=false`).
 - Analítica de producto y notificaciones.
 

@@ -92,7 +92,6 @@ export function HomeScreen({ profile }: { profile: Profile }) {
             <p className="mt-2 text-[12px] text-muted md:text-[13px]">
               {longDate(new Date())}
               <span className="px-1.5 text-rule">·</span>
-              {profile.demo ? 'Datos de ejemplo' : 'Supabase + copia local'}
             </p>
           </div>
           <div className="hidden items-center gap-2 md:flex">

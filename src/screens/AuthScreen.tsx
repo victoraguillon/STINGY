@@ -69,12 +69,6 @@ export function AuthScreen() {
       setError('La contraseña necesita al menos 6 caracteres.')
       return
     }
-    if (!supabaseConfigured) {
-      setError(
-        'Supabase no está configurado en este despliegue. Solo puedes abrir los datos de ejemplo.',
-      )
-      return
-    }
     setError(null)
     setSubmitting(true)
     try {
@@ -177,10 +171,6 @@ export function AuthScreen() {
             {!supabaseConfigured && (
               <div className="mt-5 flex gap-2.5 border-l-2 border-tomato-text bg-tomato/5 py-2 pl-2.5 pr-3">
                 <WarningCircle size={16} weight="bold" className="mt-0.5 shrink-0 text-tomato-text" />
-                <p className="text-[12px] leading-relaxed text-ink-2">
-                  Este despliegue no tiene las variables de Supabase. El acceso real está
-                  desactivado; los datos de ejemplo siguen funcionando.
-                </p>
               </div>
             )}
 
@@ -279,11 +269,6 @@ export function AuthScreen() {
               <ArrowRight size={16} weight="bold" />
             </Button>
 
-            <p className="mt-5 text-[11px] leading-relaxed text-muted">
-              Tu cuenta vive en Supabase y se guarda una copia local para seguir sin
-              conexión. La recuperación de contraseña todavía no está disponible: llega
-              cuando el dominio y el correo transaccional estén configurados.
-            </p>
           </div>
         </div>
 
