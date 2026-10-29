@@ -1,6 +1,5 @@
 import {
   ArrowClockwise,
-  ArrowRight,
   ArrowSquareOut,
   Check,
   Copy,
@@ -36,6 +35,7 @@ import type {
   TxKind,
 } from '../db/types'
 import { useRates } from '../hooks/useRates'
+import { TELEGRAM_BOT_USERNAME, telegramDeepLink, useTelegram } from '../hooks/useTelegram'
 import { cn } from '../lib/cn'
 import { shortDay } from '../lib/dates'
 import { exportCsv, exportJson } from '../lib/export'
@@ -85,9 +85,10 @@ function Kicker({ children }: { children: ReactNode }) {
 export function SettingsScreen({ profile }: { profile: Profile }) {
   const { push } = useToast()
   const { choice, setChoice } = useTheme()
-  const { updateProfile, signOut, exitDemo, deleteAccount, refreshSync } = useSession()
+  const { userId, updateProfile, signOut, exitDemo, deleteAccount, refreshSync } = useSession()
   const rates = useRates()
   const sync = useSyncStatus()
+  const telegram = useTelegram(profile, userId)
 
   const [name, setName] = useState(profile.name)
   const [baseCurrency, setBaseCurrency] = useState<Currency>(profile.baseCurrency)
@@ -109,6 +110,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
 
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   const categories =
     useLiveQuery(() => activeCategories(profile.ledgerId), [profile.ledgerId]) ?? []
@@ -279,6 +281,48 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       window.setTimeout(() => setCopied(false), 2200)
     })
   }
+
+  function copyCode() {
+    if (!telegram.code) return
+    void navigator.clipboard.writeText(telegram.code).then(() => {
+      setCodeCopied(true)
+      window.setTimeout(() => setCodeCopied(false), 2200)
+    })
+  }
+
+  async function handleConnect() {
+    try {
+      await telegram.createCode()
+    } catch (caught) {
+      push(caught instanceof Error ? caught.message : 'No se pudo generar el código.')
+    }
+  }
+
+  async function handleDisconnectTelegram() {
+    try {
+      await telegram.disconnect()
+      push('Telegram desvinculado.')
+    } catch (caught) {
+      push(caught instanceof Error ? caught.message : 'No se pudo desvincular Telegram.')
+    }
+  }
+
+  const telegramMeta =
+    telegram.status === 'connected'
+      ? telegram.link?.username
+        ? `@${telegram.link.username}`
+        : 'Vinculado'
+      : telegram.status === 'waiting'
+        ? 'Esperando'
+        : telegram.status === 'loading'
+          ? 'Verificando'
+          : telegram.status === 'offline'
+            ? 'Sin verificar'
+            : telegram.status === 'error'
+              ? 'Error'
+              : telegram.status === 'unavailable'
+                ? 'No disponible'
+                : 'No conectado'
 
   return (
     <div className="flex flex-col gap-10 pb-4 md:gap-12">
@@ -534,7 +578,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <section aria-labelledby="telegram">
-        <SectionHeader index="05" title="Telegram" meta="No conectado" />
+        <SectionHeader index="05" title="Telegram" meta={telegramMeta} />
         <Card className="mt-4">
           <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
             <div>
@@ -547,14 +591,15 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                     Anota desde el chat
                   </p>
                   <p className="mt-1 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-                    Vista previa · sin conexión real
+                    @{TELEGRAM_BOT_USERNAME}
                   </p>
                 </div>
               </div>
 
               <p className="mt-4 max-w-[48ch] text-[13px] leading-relaxed text-ink-2">
-                El bot todavía no está conectado. Así funcionará la gramática cuando lo
-                esté: una línea, sin emojis, con la tasa al final.
+                {profile.demo
+                  ? 'El modo ejemplo no se conecta a Telegram. Crea una cuenta real para vincular el bot.'
+                  : 'Una línea, sin emojis, con la tasa al final. El bot usa tu libro y tus categorías, y anota en la zona horaria de Caracas.'}
               </p>
 
               <div className="mt-4 flex flex-col gap-1.5 font-mono text-[11px] leading-relaxed text-ink-2">
@@ -572,37 +617,153 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
                   {copied ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
                   {copied ? 'Copiado' : 'Copiar ejemplos'}
                 </Button>
-                <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
-                  Disponible más adelante
-                </span>
+                {telegram.available &&
+                  (telegram.status === 'connected' ? (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      loading={telegram.busy}
+                      onClick={() => {
+                        void handleDisconnectTelegram()
+                      }}
+                    >
+                      Desvincular
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      loading={telegram.busy}
+                      disabled={telegram.status === 'offline'}
+                      onClick={() => {
+                        void handleConnect()
+                      }}
+                    >
+                      {telegram.status === 'waiting' ? 'Nuevo código' : 'Generar código'}
+                    </Button>
+                  ))}
               </div>
             </div>
 
             <div className="rounded-btn border border-rule bg-paper p-3">
               <div className="flex items-center justify-between border-b border-rule pb-2">
                 <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-                  stingy_bot
+                  @{TELEGRAM_BOT_USERNAME}
                 </span>
-                <span className="rounded-full border border-rule px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.1em] text-muted">
-                  No conectado
+                <span
+                  className={cn(
+                    'rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.1em]',
+                    telegram.status === 'connected'
+                      ? 'border-lime bg-lime/15 text-ink'
+                      : 'border-rule text-muted',
+                  )}
+                >
+                  {telegram.status === 'connected' ? 'Conectado' : telegramMeta}
                 </span>
               </div>
-              <div className="mt-3 flex flex-col gap-2">
-                <div className="ml-auto max-w-[88%] rounded-[10px] rounded-br-[3px] border border-ink/15 bg-lime px-2.5 py-1.5 text-[11px] leading-snug text-[#15160F]">
-                  Mercado 12511 bolivares bcv
-                </div>
-                <div className="mr-auto max-w-[92%] rounded-[10px] rounded-bl-[3px] border border-rule bg-surface px-2.5 py-2 text-[11px] leading-relaxed text-ink-2">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
-                    Gasto anotado
+
+              <div className="mt-3 flex flex-col gap-2.5">
+                {telegram.status === 'unavailable' && (
+                  <p className="text-[11px] leading-relaxed text-ink-2">
+                    Disponible solo en cuentas reales con Supabase configurado.
                   </p>
-                  <p className="mt-1 font-mono text-[13px] tabular-nums text-ink">
-                    Bs 12.511,00
+                )}
+
+                {telegram.status === 'offline' && (
+                  <p className="text-[11px] leading-relaxed text-ink-2">
+                    Sin conexión no puedo verificar el vínculo. Vuelve a intentar cuando
+                    tengas red.
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] tabular-nums text-muted">
-                    $ 14,12 BCV · $ 12,47 paralelo
+                )}
+
+                {telegram.status === 'loading' && (
+                  <p className="text-[11px] leading-relaxed text-muted" aria-live="polite">
+                    Verificando el vínculo con Telegram…
                   </p>
-                  <p className="mt-1.5 text-[10px] text-muted">Comida · hoy</p>
-                </div>
+                )}
+
+                {telegram.status === 'error' && (
+                  <>
+                    <p className="text-[11px] leading-relaxed text-tomato-text">
+                      {telegram.error ?? 'No pude verificar el vínculo.'}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        void telegram.refresh()
+                      }}
+                    >
+                      Reintentar
+                    </Button>
+                  </>
+                )}
+
+                {telegram.status === 'disconnected' && (
+                  <p className="text-[11px] leading-relaxed text-ink-2">
+                    Genera un código de un solo uso, ábrelo en Telegram y envía{' '}
+                    <code className="font-mono text-[10px] text-ink">/start CODIGO</code>.
+                    El código vence en 10 minutos.
+                  </p>
+                )}
+
+                {telegram.status === 'waiting' && telegram.code && (
+                  <>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+                      Tu código
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 rounded-btn border border-ink/20 bg-surface px-3 py-2 font-mono text-[20px] tracking-[0.16em] text-ink">
+                        {telegram.code}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={copyCode}
+                        aria-label="Copiar código"
+                      >
+                        {codeCopied ? (
+                          <Check size={14} weight="bold" />
+                        ) : (
+                          <Copy size={14} weight="bold" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-muted">
+                      {telegram.expiresAt
+                        ? `Vence a las ${new Date(telegram.expiresAt).toLocaleTimeString('es-VE', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}. `
+                        : ''}
+                      Envía /start con el código. Este panel se actualiza solo.
+                    </p>
+                    <a
+                      href={telegramDeepLink(telegram.code)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-btn border border-ink/25 bg-surface px-3 text-[13px] font-medium text-ink transition-colors hover:border-ink/50 md:h-9"
+                    >
+                      Abrir Telegram
+                      <ArrowSquareOut size={13} weight="bold" />
+                    </a>
+                  </>
+                )}
+
+                {telegram.status === 'connected' && telegram.link && (
+                  <>
+                    <p className="font-display text-[17px] font-semibold leading-none tracking-[-0.02em] text-ink">
+                      {telegram.link.username ? `@${telegram.link.username}` : 'Chat vinculado'}
+                    </p>
+                    <p className="font-mono text-[10px] tabular-nums text-muted">
+                      Chat {telegram.link.chatId}
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-ink-2">
+                      Vinculado el {shortDay(telegram.link.linkedAt.slice(0, 10))}. Lo que
+                      anotes aquí llega a la app en la próxima sincronización.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -753,8 +914,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
         <span>stingy · v0.1 · {profile.demo ? 'demo local' : 'Supabase + copia local'}</span>
         <span className="inline-flex items-center gap-1.5">
           <TelegramLogo size={12} weight="bold" />
-          Bot no conectado
-          <ArrowRight size={11} weight="bold" aria-hidden="true" />
+          {telegram.status === 'connected' ? 'Telegram vinculado' : `Telegram ${telegramMeta.toLowerCase()}`}
         </span>
       </div>
 

@@ -15,6 +15,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat_salary', ledgerId: DEMO_LEDGER_ID, name: 'Sueldo', icon: 'salary', kind: 'income', order: 1 },
   { id: 'cat_freelance', ledgerId: DEMO_LEDGER_ID, name: 'Freelance', icon: 'freelance', kind: 'income', order: 2 },
   { id: 'cat_sales', ledgerId: DEMO_LEDGER_ID, name: 'Ventas', icon: 'sales', kind: 'income', order: 3 },
+  { id: 'cat_other_income', ledgerId: DEMO_LEDGER_ID, name: 'Otros ingresos', icon: 'other', kind: 'income', order: 4 },
   { id: 'cat_other', ledgerId: DEMO_LEDGER_ID, name: 'Otros', icon: 'other', kind: 'expense', order: 9 },
 ]
 
