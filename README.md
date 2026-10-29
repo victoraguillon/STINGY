@@ -1,4 +1,4 @@
-# stingy
+# STINGY
 
 **Gasta con intenciÃ³n.**
 
