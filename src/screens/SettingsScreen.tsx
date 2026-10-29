@@ -913,11 +913,7 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
       </section>
 
       <div className="flex items-center justify-between border-t border-rule pt-4 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-        <span>stingy · v0.1 · {profile.demo ? 'demo local' : 'Supabase + copia local'}</span>
-        <span className="inline-flex items-center gap-1.5">
-          <TelegramLogo size={12} weight="bold" />
-          {telegram.status === 'connected' ? 'Telegram vinculado' : `Telegram ${telegramMeta.toLowerCase()}`}
-        </span>
+        <span>stingy · v0.1 ·</span>
       </div>
 
       <Modal
