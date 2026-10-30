@@ -14,7 +14,7 @@ export function MonthStepper({ month, onChange, className }: MonthStepperProps) 
   return (
     <div
       className={cn(
-        'inline-flex h-11 items-center rounded-btn border border-rule bg-surface md:h-9',
+        'inline-flex h-12 items-center rounded-btn border border-rule bg-surface md:h-9',
         className,
       )}
     >

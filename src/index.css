@@ -337,6 +337,9 @@
   top: 8px;
   left: 8px;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   translate: 0 -200%;
   background: var(--ink);
   color: var(--paper);
