@@ -135,7 +135,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (!local) {
         throw new Error(
-          'No encontramos tu perfil en Supabase. Vuelve a intentar en unos segundos.',
+          'No encontramos tu perfil. Vuelve a intentar en unos segundos.',
         )
       }
       await ensureLedger(local)
@@ -209,7 +209,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       if (!supabaseConfigured) {
         throw new Error(
-          'Supabase no está configurado en este despliegue. Revisa las variables de entorno.',
+          'No se pudo iniciar sesión. Intenta de nuevo en unos segundos.',
         )
       }
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -226,7 +226,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       if (!supabaseConfigured) {
         throw new Error(
-          'Supabase no está configurado en este despliegue. Revisa las variables de entorno.',
+          'No se pudo crear la cuenta. Intenta de nuevo en unos segundos.',
         )
       }
       const clean = email.trim().toLowerCase()
@@ -240,7 +240,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (authError) throw new Error(authMessage(authError.message))
       if (!data.session?.user) {
         throw new Error(
-          'La cuenta se creó, pero este proyecto todavía pide confirmar el correo. Revisa tu bandeja o avisa al administrador.',
+          'La cuenta se creó, pero no se pudo abrir la sesión. Inicia sesión con tu correo.',
         )
       }
       await openAccount(data.session.user.id)

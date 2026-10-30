@@ -164,9 +164,6 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
                       <span className="font-mono text-[8px] uppercase tracking-[0.14em] text-muted">
                         Así se anotará
                       </span>
-                      <span className="rounded-full border border-rule px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-muted">
-                        No conectado
-                      </span>
                     </div>
                     <pre className="mt-3 overflow-x-auto font-mono text-[13px] leading-relaxed text-ink">
                       Mercado 12511 bolivares bcv
@@ -177,7 +174,7 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
                     </p>
                   </div>
                   <p className="mt-4 max-w-[46ch] text-[12px] leading-relaxed text-muted">
-                    Podrás vincular tu Telegram desde Ajustes cuando la conexión esté lista.
+                    Podrás vincular tu Telegram desde Ajustes con un código de un solo uso.
                     Mientras tanto, todo se anota desde la app.
                   </p>
                 </div>
@@ -213,7 +210,7 @@ export function OnboardingScreen({ profile }: { profile: Profile }) {
 
       <footer className="mx-auto flex w-full max-w-[720px] items-center justify-between px-5 pb-5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted md:px-8">
         <span>Una cuenta por persona</span>
-        <span>{profile.demo ? 'Datos de ejemplo' : 'Supabase + copia local'}</span>
+        <span>{profile.demo ? 'Datos de ejemplo' : 'Tu libro'}</span>
       </footer>
     </div>
   )

@@ -299,7 +299,7 @@ export function syncPhaseLabel(phase: SyncPhase) {
     case 'error':
       return 'Error de sync'
     case 'disabled':
-      return 'Supabase no configurado'
+      return 'Sin conexión'
     default:
       return 'Al día'
   }

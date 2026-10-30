@@ -463,7 +463,7 @@ export function QuickAddSheet({
               <p className="hidden font-mono text-[9px] uppercase leading-relaxed tracking-[0.1em] text-muted md:block">
                 {profile.demo
                   ? 'También puedes escribir el monto con el teclado. Los datos de ejemplo viven solo en este dispositivo.'
-                  : 'También puedes escribir el monto con el teclado. Se guarda aquí y se sincroniza con Supabase.'}
+                  : 'También puedes escribir el monto con el teclado. Se guarda aquí y se sincroniza cuando hay conexión.'}
               </p>
             </div>
 

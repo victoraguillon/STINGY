@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, EyeSlash, WarningCircle } from '@phosphor-icons/react'
+import { ArrowRight, Eye, EyeSlash } from '@phosphor-icons/react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useSession } from '../app/session'
 import { BrandLockup } from '../components/Brand'
@@ -95,11 +95,8 @@ export function AuthScreen() {
   return (
     <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[55%_45%]">
       <aside className="relative hidden flex-col overflow-hidden bg-paper px-10 py-10 lg:flex xl:px-16">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <BrandLockup coinSize={22} textClassName="text-[21px]" />
-          <span className="font-mono text-[8px] uppercase tracking-[0.14em] text-muted">
-            Venezuela · Bs / $
-          </span>
         </div>
 
         <div className="flex flex-1 flex-col justify-center py-10">
@@ -123,18 +120,14 @@ export function AuthScreen() {
           </div>
         </div>
 
-        <footer className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+        <footer className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
           <span>Hecho para Venezuela</span>
-          <span>v0.1.0</span>
         </footer>
       </aside>
 
       <main className="flex min-h-dvh flex-col bg-paper lg:border-l lg:border-rule lg:bg-surface">
-        <div className="flex items-center justify-between px-5 pb-2 pt-5 lg:hidden">
+        <div className="flex items-center px-5 pb-2 pt-5 lg:hidden">
           <BrandLockup coinSize={19} textClassName="text-[19px]" />
-          <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            {supabaseConfigured ? 'Cuenta real' : 'Sin backend'}
-          </span>
         </div>
 
         <div className="px-5 pb-7 pt-8 lg:hidden">
@@ -157,7 +150,7 @@ export function AuthScreen() {
         <div className="flex flex-1 items-center border-y border-rule bg-surface px-5 py-9 lg:border-0 lg:bg-transparent lg:px-10 xl:px-16">
           <div className="mx-auto w-full max-w-[380px]">
             <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
-              Acceso · {supabaseConfigured ? 'Supabase' : 'sin configurar'}
+              Acceso
             </p>
             <h2 className="mt-2 font-display text-[30px] font-semibold leading-[1.02] tracking-[-0.04em] text-ink">
               {mode === 'register' ? 'Abre tu libro.' : 'Vuelve a tu libro.'}
@@ -167,12 +160,6 @@ export function AuthScreen() {
                 ? 'Una cuenta por persona. Tus números no se mezclan con los de nadie.'
                 : 'Entra para seguir anotando donde lo dejaste.'}
             </p>
-
-            {!supabaseConfigured && (
-              <div className="mt-5 flex gap-2.5 border-l-2 border-tomato-text bg-tomato/5 py-2 pl-2.5 pr-3">
-                <WarningCircle size={16} weight="bold" className="mt-0.5 shrink-0 text-tomato-text" />
-              </div>
-            )}
 
             <Segmented
               className="mt-6"
@@ -272,9 +259,8 @@ export function AuthScreen() {
           </div>
         </div>
 
-        <footer className="flex items-center justify-between px-5 py-5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted lg:px-10 xl:px-16">
+        <footer className="px-5 py-5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted lg:px-10 xl:px-16">
           <span>stingy · Gasta con intención</span>
-          <span>v0.1.0</span>
         </footer>
       </main>
     </div>

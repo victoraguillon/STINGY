@@ -145,7 +145,7 @@ export function useTelegram(profile: Profile, userId: string | null) {
       const { data, error: rpcError } = await supabase.rpc('create_telegram_link_code')
       if (rpcError) throw new Error(messageOf(rpcError))
       const next = String(data ?? '').trim().toUpperCase()
-      if (!next) throw new Error('Supabase no devolvió un código.')
+      if (!next) throw new Error('No se recibió un código. Intenta de nuevo.')
       setCode(next)
       setExpiresAt(new Date(Date.now() + 10 * 60 * 1000).toISOString())
       setStatus('waiting')

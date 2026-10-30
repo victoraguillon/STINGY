@@ -282,9 +282,6 @@ export function DesignSystemScreen({ profile }: { profile: Profile }) {
               Sistema de diseño
             </span>
           </div>
-          <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
-            v0.1
-          </span>
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:items-end">
